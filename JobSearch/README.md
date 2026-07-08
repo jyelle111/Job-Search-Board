@@ -49,13 +49,24 @@ name, date, format, interviewer). Adding a round:
 - Moves the job to `interviewing` (never downgrades a job already at `offer`/`rejected`).
 - Queues an `interview_add` decision; on the next Sync, `job-board-sync` creates the round
   record AND launches a subagent to research the company/round and write back
-  `study_notes`, `best_practices`, and `recommended_questions` for that specific round.
+  `study_notes`, `best_practices`, `recommended_questions`, and `mock_questions` for that
+  specific round. `mock_questions` is an array of `{q, guidance, probes}` objects (the
+  questions THEY will likely ask YOU) — the board's in-card "Practice here" drill reads
+  these; if absent it falls back to a set generated from the round format + role keywords.
 - You can add running notes to any round from the board (before or after the interview) —
   these sync the same way as job notes.
 - **"Talk about this"** (on every job row) copies the full job + interview context — JD
   summary, comp, fit/gaps, notes, interview prep, your own notes — to your clipboard, since
   a static dashboard can't open a live chat turn on its own; paste it into a new chat
   message to talk it through with full context.
+- **↗ chat handoffs** — because the artifact sandbox can't run a live model, the board's
+  AI actions ("Ask about this role", "Negotiation brief", "Strategy brief", "Live mock in
+  chat") open a side panel with a ready-to-run prompt you copy into a Claude chat. Each
+  prompt inlines the key context AND points Claude at the live `data/jobs.json` (by job id)
+  and `Profile/` files, so the chat stays current without you saving anything by hand.
+- **Practice here** (in-card mock drill) runs a self-contained flashcard-style mock right on
+  the board from that round's `mock_questions` — type an answer, reveal what a strong answer
+  does, and optionally save the answer to that round's notes (syncs like any other note).
 
 ## Check-in workflow (say "job check-in" in chat, or your own phrasing)
 1. Claude reads jobs.json, summarizes: new matches, status of applied jobs, pending

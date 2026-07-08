@@ -1,6 +1,6 @@
 ---
 name: job-board-refresh
-description: On-demand — rebuild the job board artifact from the latest jobs.json (wired to the board's "Refresh board data" button).
+description: On-demand — rebuild the job board artifact from the latest jobs.json (wired to the board's "Refresh" button).
 ---
 
 Rebuild the job board artifact from the latest data. Before first use, replace

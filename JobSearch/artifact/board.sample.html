@@ -3,219 +3,467 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Job Dispatch Board</title>
+<title>Signal — Job Search Command</title>
 <style>
   :root {
-    color-scheme: light;
-    --paper: #F2F5F7;
+    color-scheme: light dark;
+    /* surfaces (warm stone, deliberately not cream) */
+    --bg: #F6F5F2;
     --surface: #FFFFFF;
-    --ink: #16283A;
-    --muted: #5B707E;
-    --line: #D8E0E6;
-    --signal: #D9480F;      /* ONLY for things awaiting your decision */
-    --signal-soft: #FCE8DE;
-    --go: #2B8A3E;
-    --go-soft: #E3F2E6;
-    --hold: #1864AB;
-    --hold-soft: #E3EDF8;
-    --dead: #868E96;
-    --display: "Avenir Next Condensed", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
-    --body: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
-    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    --surface-2: #FBFAF7;
+    --inset: #F1F0EB;
+    --ink: #191C20;
+    --muted: #626871;
+    --faint: #9AA0A6;
+    --line: #E7E5DE;
+    --line-strong: #D8D5CC;
+    /* pipeline temperature: cold discovery -> warm offer */
+    --new: #8A9099;
+    --flight: #3E7BF0;
+    --applied: #0E9C93;
+    --interviewing: #8257E6;
+    --offer: #1FA85A;
+    --dead: #AEB0AA;
+    /* the one signal color: amber == your attention is required */
+    --accent: #E0921A;
+    --accent-ink: #925C08;
+    --go: #1C9C55;
+    --go-ink: #0F7B40;
+    --danger: #D64545;
+    --shadow: 0 1px 2px rgba(20,24,32,.05), 0 2px 6px rgba(20,24,32,.05);
+    --shadow-lg: 0 6px 24px rgba(20,24,32,.10), 0 2px 8px rgba(20,24,32,.06);
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --r-lg: 14px; --r-md: 10px; --r-sm: 7px;
   }
+  :root[data-theme="dark"], :root:not([data-theme="light"]) {
+    /* dark overrides applied below via media query + attribute */
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131417; --surface: #1C1E22; --surface-2: #191B1F; --inset: #232529;
+      --ink: #EDECE8; --muted: #9BA1A9; --faint: #6E747C; --line: #2C2F34; --line-strong: #3A3E44;
+      --new: #8B929B; --flight: #5B93F5; --applied: #1FB5AB; --interviewing: #9B78F0; --offer: #37BE72;
+      --dead: #55585D; --accent: #F0A93B; --accent-ink: #F5C170; --go: #35B96B; --go-ink: #5FCB8C; --danger: #F06B6B;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 2px 8px rgba(0,0,0,.3);
+      --shadow-lg: 0 8px 30px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #131417; --surface: #1C1E22; --surface-2: #191B1F; --inset: #232529;
+    --ink: #EDECE8; --muted: #9BA1A9; --faint: #6E747C; --line: #2C2F34; --line-strong: #3A3E44;
+    --new: #8B929B; --flight: #5B93F5; --applied: #1FB5AB; --interviewing: #9B78F0; --offer: #37BE72;
+    --dead: #55585D; --accent: #F0A93B; --accent-ink: #F5C170; --go: #35B96B; --go-ink: #5FCB8C; --danger: #F06B6B;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 2px 8px rgba(0,0,0,.3);
+    --shadow-lg: 0 8px 30px rgba(0,0,0,.5);
+  }
+
   * { box-sizing: border-box; margin: 0; }
-  body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 14px; line-height: 1.45; }
-  a { color: var(--hold); }
-  button { font-family: var(--body); cursor: pointer; }
-  button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--hold); outline-offset: 2px; }
-  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+  html { -webkit-text-size-adjust: 100%; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans);
+    font-size: 14px; line-height: 1.5; letter-spacing: -0.003em;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  a { color: var(--flight); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  button, input, textarea, select { font-family: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--flight); outline-offset: 2px; border-radius: 4px; }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
 
-  .masthead { display: flex; align-items: baseline; gap: 14px; padding: 22px 26px 0; flex-wrap: wrap; }
-  .masthead h1 { font-family: var(--display); font-weight: 700; font-size: 26px; letter-spacing: .12em; text-transform: uppercase; }
-  .masthead h1 span { color: var(--signal); }
-  .masthead .stamp { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .04em; }
-  .masthead .spacer { flex: 1; }
-  .runbtns { display: flex; gap: 8px; }
-  .runbtns button { background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 6px 12px; font-size: 12px; color: var(--ink); }
-  .runbtns button:hover { border-color: var(--ink); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 22px; }
 
-  .notebox { display: flex; gap: 8px; margin-top: 10px; align-items: flex-start; }
-  .notebox textarea { flex: 1; border: 1px solid var(--line); border-radius: 3px; padding: 7px 9px; font-size: 12.5px; font-family: var(--body); min-height: 38px; resize: vertical; }
+  /* ---------- top bar ---------- */
+  .top { display: flex; align-items: center; gap: 16px; padding: 22px 0 16px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 11px; }
+  .glyph { width: 30px; height: 30px; position: relative; flex: none; }
+  .glyph span { position: absolute; left: 50%; top: 50%; border-radius: 50%; transform: translate(-50%,-50%);
+    border: 1.5px solid var(--accent); }
+  .glyph span:nth-child(1){ width: 8px; height: 8px; background: var(--accent); border: none; }
+  .glyph span:nth-child(2){ width: 18px; height: 18px; opacity: .55; }
+  .glyph span:nth-child(3){ width: 28px; height: 28px; opacity: .25; }
+  .brand h1 { font-size: 19px; font-weight: 680; letter-spacing: -0.02em; }
+  .brand .sub { font-size: 11px; color: var(--faint); letter-spacing: .01em; margin-top: 1px; }
+  .top .spacer { flex: 1; }
+  .stamp { font-family: var(--mono); font-size: 10.5px; color: var(--faint); letter-spacing: .02em; }
+  .toolbtns { display: flex; gap: 7px; align-items: center; }
+  .tbtn { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-sm);
+    padding: 7px 12px; font-size: 12.5px; color: var(--ink); box-shadow: var(--shadow); transition: border-color .12s, transform .08s; }
+  .tbtn:hover { border-color: var(--line-strong); }
+  .tbtn:active { transform: translateY(1px); }
+  .icon-btn { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0; font-size: 15px; }
 
-  .tabs { display: flex; gap: 4px; margin: 18px 26px 0; border-bottom: 2px solid var(--line); }
-  .tab { background: none; border: none; padding: 9px 16px 8px; font-family: var(--display); text-transform: uppercase; letter-spacing: .1em; font-size: 12.5px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; }
-  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); font-weight: 600; }
-  .tab .cnt { font-family: var(--mono); font-size: 11px; margin-left: 5px; }
-  .tab.hot .cnt { color: var(--signal); font-weight: 700; }
+  /* ---------- pipeline / stage filter ---------- */
+  .pipe { display: flex; gap: 8px; padding: 4px 0 6px; overflow-x: auto; scrollbar-width: none; }
+  .pipe::-webkit-scrollbar { display: none; }
+  .stage { flex: none; display: flex; align-items: center; gap: 9px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px 7px 12px; cursor: pointer;
+    transition: border-color .12s, background .12s; box-shadow: var(--shadow); }
+  .stage:hover { border-color: var(--line-strong); }
+  .stage[aria-selected="true"] { border-color: var(--dot); background: color-mix(in srgb, var(--dot) 9%, var(--surface)); }
+  .stage .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dot); flex: none; }
+  .stage .nm { font-size: 12.5px; font-weight: 550; color: var(--ink); white-space: nowrap; }
+  .stage .ct { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .stage.attention[aria-selected="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+  .stage.attention .dot { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+  .stage.attention .ct { color: var(--accent-ink); font-weight: 700; }
 
-  .board { padding: 14px 26px 40px; }
-  .row { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; margin-bottom: 10px; overflow: hidden; }
-  .row.needs { border-left: 3px solid var(--signal); }
-  .rowhead { display: grid; grid-template-columns: 44px 1fr auto; gap: 14px; padding: 12px 16px; align-items: center; cursor: pointer; }
-  .rowhead:hover { background: #FAFCFD; }
+  /* ---------- momentum strip ---------- */
+  .momentum { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px; }
+  .nudge { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink);
+    background: color-mix(in srgb, var(--accent) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+    border-radius: 999px; padding: 5px 11px; cursor: pointer; }
+  .nudge:hover { border-color: var(--accent); }
+  .nudge b { font-weight: 650; }
+  .nudge .clock { color: var(--accent-ink); }
 
-  /* signature: vertical fit meter */
-  .meter { display: flex; align-items: flex-end; gap: 2px; height: 34px; }
-  .meter i { width: 6px; background: var(--line); display: block; }
-  .meter i.on { background: var(--ink); }
-  .meter i:nth-child(1){height:8px}.meter i:nth-child(2){height:14px}.meter i:nth-child(3){height:20px}.meter i:nth-child(4){height:27px}.meter i:nth-child(5){height:34px}
-  .fitnum { font-family: var(--mono); font-size: 10px; color: var(--muted); text-align: center; margin-top: 2px; }
+  /* ---------- alerts / sync / questions ---------- */
+  .banner { margin: 10px 0 0; padding: 10px 14px; border-radius: var(--r-md); font-size: 13px; display: none; }
+  .banner.err { display: block; background: color-mix(in srgb, var(--danger) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--line)); color: var(--danger); }
+  .banner.info { display: block; background: color-mix(in srgb, var(--flight) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--flight) 40%, var(--line)); color: var(--flight); }
 
-  .who .title { font-weight: 600; font-size: 15px; }
-  .who .co { color: var(--muted); font-size: 13px; }
-  .who .chips { margin-top: 4px; display: flex; gap: 6px; flex-wrap: wrap; }
-  .chip { font-family: var(--mono); font-size: 10.5px; padding: 1.5px 7px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); }
-  .chip.type { border-color: var(--hold); color: var(--hold); }
-  .chip.verify { border-color: var(--signal); color: var(--signal); font-weight: 700; }
-  .chip.legit { border-color: var(--go); color: var(--go); }
-  .chip.queued { background: var(--signal-soft); border-color: var(--signal); color: #7A2E0E; font-weight: 700; }
-  .chip.co-applied { background: var(--go-soft); border-color: var(--go); color: var(--go); font-weight: 700; cursor: help; }
-  .chip.docs-ready { background: var(--go-soft); border-color: var(--go); color: var(--go); font-weight: 700; }
-  .chip.docs-pending { border-color: var(--signal); color: var(--signal); font-weight: 700; }
-  .chip.iv-count { background: var(--hold-soft); border-color: var(--hold); color: var(--hold); font-weight: 700; }
-  .comp { text-align: right; font-family: var(--mono); font-size: 12px; color: var(--ink); white-space: nowrap; }
-  .comp .st { display: block; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
-  .st.s-new { color: var(--signal); font-weight: 700; }
-  .st.s-applied { color: var(--go); } .st.s-flight { color: var(--hold); } .st.s-dead { color: var(--dead); }
-
-  .detail { border-top: 1px dashed var(--line); padding: 14px 16px 16px; display: none; }
-  .row.open .detail { display: block; }
-  .detail .jd { color: var(--ink); margin-bottom: 10px; max-width: 72ch; }
-  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 10px; }
-  @media (max-width: 700px) { .cols { grid-template-columns: 1fr; } .rowhead { grid-template-columns: 44px 1fr; } .comp { display:none; } }
-  .cols h4 { font-family: var(--display); text-transform: uppercase; letter-spacing: .1em; font-size: 11px; margin-bottom: 5px; }
-  .cols .for h4 { color: var(--go); } .cols .against h4 { color: var(--signal); }
-  .cols ul { padding-left: 16px; color: var(--ink); }
-  .cols li { margin-bottom: 3px; }
-  .money { font-family: var(--mono); font-size: 12px; background: var(--paper); border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; margin-bottom: 12px; }
-  .money div { margin: 1px 0; }
-  .money b { display: inline-block; min-width: 120px; font-weight: 600; }
-  .acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  .acts-secondary { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-left: auto; }
-  .acts .btn.subtle { opacity: .8; }
-  .btn { border-radius: 3px; padding: 7px 14px; font-size: 13px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
-  .btn.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
-  .btn.primary:hover { background: #0E1B28; }
-  .btn.danger:hover { border-color: var(--signal); color: var(--signal); }
-  .btn:disabled { opacity: .5; cursor: wait; }
-  .passform { display: none; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
-  .passform.show { display: flex; }
-  .passform .chipbtn { font-family: var(--mono); font-size: 11px; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 3px 9px; }
-  .passform .chipbtn:hover { border-color: var(--signal); color: var(--signal); }
-  .passform input { border: 1px solid var(--line); border-radius: 3px; padding: 5px 8px; font-size: 12px; min-width: 200px; }
-  .note { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 8px; }
-
-  .qpanel { margin: 4px 26px 14px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--signal); border-radius: 4px; padding: 12px 16px; }
-  .qpanel h3 { font-family: var(--display); text-transform: uppercase; letter-spacing: .1em; font-size: 12px; color: var(--signal); margin-bottom: 6px; }
-  .q { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
-  .q p { flex: 1 1 300px; }
-  .q input { flex: 1 1 220px; border: 1px solid var(--line); border-radius: 3px; padding: 6px 8px; font-size: 12.5px; }
-
-  .syncbar { margin: 14px 26px 0; background: var(--signal-soft); border: 1px solid var(--signal); border-radius: 4px; padding: 10px 14px; display: none; }
+  .syncbar { margin: 12px 0 0; background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--line)); border-radius: var(--r-md); padding: 12px 14px; display: none; }
   .syncbar.show { display: block; }
   .syncbar .head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .syncbar .head b { color: #7A2E0E; }
-  .syncbar textarea { width: 100%; margin-top: 8px; font-family: var(--mono); font-size: 11.5px; border: 1px solid var(--signal); border-radius: 3px; padding: 8px; min-height: 64px; background: #fff; display: none; }
+  .syncbar .head b { color: var(--accent-ink); font-size: 13px; }
+  .syncbar .note { font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin: 0; line-height: 1.4; flex: 1 1 220px; }
+  .syncbar textarea { width: 100%; margin-top: 9px; font-family: var(--mono); font-size: 11.5px; color: var(--ink);
+    border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: 9px; min-height: 62px; background: var(--surface); display: none; }
   .syncbar textarea.show { display: block; }
 
-  .empty { text-align: center; color: var(--muted); padding: 44px 0; font-family: var(--display); text-transform: uppercase; letter-spacing: .14em; font-size: 13px; }
-  .banner { margin: 14px 26px 0; padding: 10px 14px; border-radius: 4px; font-size: 13px; display: none; }
-  .banner.err { display: block; background: var(--signal-soft); border: 1px solid var(--signal); color: #7A2E0E; }
-  .banner.info { display: block; background: var(--hold-soft); border: 1px solid var(--hold); color: var(--hold); }
-  .foot { margin: 6px 26px 30px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .qpanel { margin: 12px 0 0; background: var(--surface); border: 1px solid var(--line);
+    border-left: 3px solid var(--accent); border-radius: var(--r-md); padding: 13px 16px; box-shadow: var(--shadow); }
+  .qpanel h3 { font-size: 12px; font-weight: 640; text-transform: uppercase; letter-spacing: .08em; color: var(--accent-ink); margin-bottom: 9px; }
+  .q { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .q:last-child { margin-bottom: 0; }
+  .q p { flex: 1 1 280px; font-size: 13px; }
+  .q input { flex: 1 1 200px; }
 
-  /* collapsible section wrapper (match reasoning etc.) */
-  .fold { border: 1px solid var(--line); border-radius: 4px; margin-bottom: 10px; background: var(--surface); }
-  .fold summary { cursor: pointer; padding: 8px 10px; font-family: var(--display); text-transform: uppercase; letter-spacing: .08em; font-size: 11px; color: var(--muted); list-style: none; }
-  .fold summary::-webkit-details-marker { display: none; }
-  .fold[open] summary { border-bottom: 1px dashed var(--line); }
-  .fold .fold-body { padding: 10px 10px 2px; }
+  /* shared inputs */
+  input[type=text], textarea, select { border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+    padding: 7px 10px; font-size: 12.5px; background: var(--surface); color: var(--ink); }
+  input[type=text]::placeholder, textarea::placeholder { color: var(--faint); }
+  textarea { resize: vertical; line-height: 1.5; }
 
-  /* documents (resume/cover letter preview) */
-  .docs-empty { border: 1px dashed var(--signal); border-radius: 4px; padding: 9px 11px; margin-bottom: 12px; font-size: 12.5px; color: #7A2E0E; background: var(--signal-soft); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .docs { margin-bottom: 12px; }
-  .docs h4 { font-family: var(--display); text-transform: uppercase; letter-spacing: .1em; font-size: 11px; margin-bottom: 6px; color: var(--muted); }
-  .doc { border: 1px solid var(--line); border-radius: 4px; margin-bottom: 6px; background: var(--paper); }
-  .doc summary { cursor: pointer; padding: 7px 10px; font-size: 12.5px; font-weight: 600; list-style: none; display: flex; gap: 8px; align-items: center; }
+  /* ---------- board ---------- */
+  .board { padding: 16px 0 8px; display: flex; flex-direction: column; gap: 11px; }
+  .section-lead { display: flex; align-items: baseline; gap: 9px; margin: 4px 0 -2px; }
+  .section-lead h2 { font-size: 13px; font-weight: 640; letter-spacing: -0.01em; }
+  .section-lead .hint { font-size: 12px; color: var(--muted); }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
+    box-shadow: var(--shadow); overflow: hidden; transition: box-shadow .14s, border-color .14s; position: relative; }
+  .card:hover { box-shadow: var(--shadow-lg); }
+  .card.needs { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  .card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--stage-hue); opacity: .0; transition: opacity .14s; }
+  .card.open::before, .card:hover::before { opacity: 1; }
+  .card.needs::before { background: var(--accent); opacity: 1; }
+
+  .head-row { display: grid; grid-template-columns: 52px 1fr auto; gap: 15px; padding: 15px 17px; align-items: center; cursor: pointer; }
+  .head-row:hover { background: var(--surface-2); }
+  @media (max-width: 560px) {
+    .head-row { grid-template-columns: 44px 1fr; gap: 12px; }
+    .status-cell { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: space-between; padding-left: 56px; }
+    .who .chips { margin-top: 6px; }
+  }
+
+  /* fit meter */
+  .fit { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .bars { display: flex; align-items: flex-end; gap: 2.5px; height: 26px; }
+  .bars i { width: 6px; border-radius: 1.5px; background: var(--line-strong); display: block; }
+  .bars i.on { background: var(--ink); }
+  .bars i:nth-child(1){height:9px}.bars i:nth-child(2){height:14px}.bars i:nth-child(3){height:19px}.bars i:nth-child(4){height:24px}.bars i:nth-child(5){height:26px}
+  .fit .n { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--muted); }
+  .fit .lbl { font-family: var(--mono); font-size: 8px; letter-spacing: .1em; color: var(--faint); text-transform: uppercase; }
+
+  .who .title { font-weight: 620; font-size: 15.5px; letter-spacing: -0.01em; line-height: 1.3; }
+  .who .co { color: var(--muted); font-size: 13px; margin-top: 1px; }
+  .who .chips { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+  .chip { font-size: 11px; padding: 2px 9px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); white-space: nowrap; }
+  .chip.mono { font-family: var(--mono); font-size: 10.5px; }
+  .chip.type { border-color: color-mix(in srgb, var(--flight) 40%, var(--line)); color: var(--flight); }
+  .chip.hist { background: color-mix(in srgb, var(--applied) 12%, var(--surface)); border-color: color-mix(in srgb, var(--applied) 45%, var(--line)); color: var(--applied); cursor: help; font-weight: 600; }
+  .chip.docs-ready { background: color-mix(in srgb, var(--go) 13%, var(--surface)); border-color: color-mix(in srgb, var(--go) 45%, var(--line)); color: var(--go-ink); font-weight: 600; }
+  .chip.docs-pending { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); color: var(--accent-ink); }
+  .chip.iv { background: color-mix(in srgb, var(--interviewing) 13%, var(--surface)); border-color: color-mix(in srgb, var(--interviewing) 45%, var(--line)); color: var(--interviewing); font-weight: 600; }
+  .chip.queued { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+  /* legitimacy shield */
+  .legit { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+    padding: 2px 8px 2px 6px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+  .legit .g { font-size: 10px; }
+  .legit.hi { color: var(--go-ink); border-color: color-mix(in srgb, var(--go) 45%, var(--line)); background: color-mix(in srgb, var(--go) 10%, var(--surface)); }
+  .legit.mid { color: var(--accent-ink); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+  .legit.lo { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); background: color-mix(in srgb, var(--danger) 9%, var(--surface)); }
+
+  .status-cell { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: .02em;
+    padding: 3px 10px; border-radius: 999px; text-transform: uppercase; }
+  .pill .d { width: 7px; height: 7px; border-radius: 50%; background: var(--stage-hue); }
+  .pill { color: var(--stage-hue); background: color-mix(in srgb, var(--stage-hue) 13%, var(--surface)); }
+  .comp-brief { font-family: var(--mono); font-size: 12px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .comp-brief .u { color: var(--faint); }
+
+  /* ---------- detail ---------- */
+  .detail { border-top: 1px solid var(--line); padding: 16px 17px 17px; display: none; }
+  .card.open .detail { display: block; }
+  .jd { color: var(--ink); margin-bottom: 14px; max-width: 74ch; font-size: 13.5px; }
+
+  .module { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); padding: 13px 14px; margin-bottom: 12px; }
+  .module > h4 { font-size: 11px; font-weight: 640; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; gap: 7px; }
+  .module > h4 .k { width: 6px; height: 6px; border-radius: 50%; }
+
+  /* comp scale */
+  .comp-scale { margin: 4px 0 10px; }
+  .scale-track { position: relative; height: 34px; margin: 18px 4px 6px; }
+  .scale-base { position: absolute; left: 0; right: 0; top: 15px; height: 4px; background: var(--inset); border-radius: 2px; }
+  .band { position: absolute; top: 11px; height: 12px; border-radius: 6px; }
+  .band.market { background: color-mix(in srgb, var(--muted) 24%, var(--surface)); top: 13px; height: 8px; }
+  .band.posted { background: color-mix(in srgb, var(--flight) 45%, var(--surface)); border: 1px solid var(--flight); }
+  .band.ask { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+  .band .tag { position: absolute; top: -17px; left: 0; font-family: var(--mono); font-size: 9px; letter-spacing: .04em; white-space: nowrap; color: var(--muted); text-transform: uppercase; }
+  .band.ask .tag { color: var(--accent-ink); font-weight: 700; }
+  .comp-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 16px; }
+  @media (max-width: 640px){ .comp-rows { grid-template-columns: 1fr; } }
+  .comp-rows .r { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; padding: 4px 0; border-bottom: 1px dotted var(--line); }
+  .comp-rows .r b { font-weight: 550; color: var(--muted); }
+  .comp-rows .r .v { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .comp-rows .r.ask .v { color: var(--go-ink); font-weight: 700; }
+
+  /* reasoning columns */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px){ .cols { grid-template-columns: 1fr; } }
+  .cols .col h5 { font-size: 11px; font-weight: 640; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .cols .for h5 { color: var(--go-ink); } .cols .against h5 { color: var(--accent-ink); }
+  .cols ul { list-style: none; }
+  .cols li { position: relative; padding-left: 15px; margin-bottom: 5px; font-size: 12.5px; }
+  .cols li::before { content: ""; position: absolute; left: 3px; top: 8px; width: 4px; height: 4px; border-radius: 50%; background: var(--faint); }
+  .cols .for li::before { background: var(--go); } .cols .against li::before { background: var(--accent); }
+
+  /* documents */
+  .docs-empty { display: flex; gap: 11px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--accent-ink); }
+  .doc { border: 1px solid var(--line); border-radius: var(--r-sm); margin-bottom: 6px; background: var(--surface); }
+  .doc:last-child { margin-bottom: 0; }
+  .doc summary { cursor: pointer; padding: 8px 11px; font-size: 12.5px; font-weight: 600; list-style: none; display: flex; gap: 9px; align-items: center; }
   .doc summary::-webkit-details-marker { display: none; }
-  .doc summary .path { font-family: var(--mono); font-weight: 400; color: var(--muted); font-size: 11px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .doc pre { margin: 0; padding: 10px; border-top: 1px dashed var(--line); max-height: 260px; overflow: auto; font-family: var(--mono); font-size: 11px; white-space: pre-wrap; background: var(--surface); }
-  .copypath { font-family: var(--mono); font-size: 10.5px; border: 1px solid var(--line); border-radius: 10px; padding: 2px 8px; background: var(--surface); }
+  .doc summary::before { content: "›"; color: var(--faint); font-size: 15px; transition: transform .12s; }
+  .doc[open] summary::before { transform: rotate(90deg); }
+  .doc summary .path { font-family: var(--mono); font-weight: 400; color: var(--faint); font-size: 10.5px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .doc pre { margin: 0; padding: 11px; border-top: 1px solid var(--line); max-height: 280px; overflow: auto; font-family: var(--mono); font-size: 11px; white-space: pre-wrap; color: var(--ink); }
+  .copypath { font-family: var(--mono); font-size: 10px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; background: var(--surface-2); color: var(--muted); }
 
-  /* interview stage */
-  .interviews { margin: 12px 0; border-top: 1px dashed var(--line); padding-top: 12px; }
-  .interviews h4 { font-family: var(--display); text-transform: uppercase; letter-spacing: .1em; font-size: 11px; margin-bottom: 8px; color: var(--muted); }
-  .ivrow { border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; margin-bottom: 8px; background: var(--paper); }
-  .ivhead { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
-  .ivhead .meta { font-weight: 400; font-family: var(--mono); font-size: 11px; color: var(--muted); }
-  .prep { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 8px 0; }
-  @media (max-width: 900px) { .prep { grid-template-columns: 1fr; } }
-  .prep div { background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 7px 9px; font-size: 12px; }
-  .prep b { display: block; font-family: var(--display); text-transform: uppercase; letter-spacing: .08em; font-size: 10px; color: var(--hold); margin-bottom: 3px; }
-  .ivnotes { margin-top: 6px; font-size: 12px; }
-  .ivnotes .n { padding: 4px 0; border-top: 1px dotted var(--line); }
-  .ivnotes .n:first-child { border-top: none; }
-  .addround { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
-  .addround input, .addround select { border: 1px solid var(--line); border-radius: 3px; padding: 5px 8px; font-size: 12px; }
-  .addround input[data-round-round] { flex: 1 1 160px; }
-  .addround input[data-round-date] { width: 130px; }
-  .addround input[data-round-interviewers] { flex: 1 1 160px; }
+  /* interviews */
+  .ivround { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); margin-bottom: 10px; overflow: hidden; }
+  .ivround:last-child { margin-bottom: 0; }
+  .ivtop { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 11px 13px; border-bottom: 1px solid var(--line); }
+  .ivtop .rnd { font-weight: 620; font-size: 13.5px; }
+  .ivtop .meta { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .ivtop .when { margin-left: auto; font-family: var(--mono); font-size: 11px; padding: 3px 9px; border-radius: 999px;
+    background: color-mix(in srgb, var(--interviewing) 12%, var(--surface)); color: var(--interviewing); font-weight: 600; }
+  .ivtop .when.soon { background: color-mix(in srgb, var(--accent) 15%, var(--surface)); color: var(--accent-ink); }
+  .ivbody { padding: 12px 13px; }
+  .prep { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 9px; margin-bottom: 11px; }
+  @media (max-width: 760px){ .prep { grid-template-columns: 1fr; } }
+  .prep .p { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 9px 10px; font-size: 12px; }
+  .prep .p b { display: block; font-size: 9.5px; font-weight: 650; text-transform: uppercase; letter-spacing: .07em; color: var(--interviewing); margin-bottom: 5px; }
+  .iv-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+
+  /* mock drill */
+  .drill { border: 1px dashed color-mix(in srgb, var(--interviewing) 50%, var(--line)); border-radius: var(--r-md);
+    background: color-mix(in srgb, var(--interviewing) 6%, var(--surface)); padding: 13px; margin-top: 11px; }
+  .drill .dhead { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+  .drill .dhead .lbl { font-size: 10px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--interviewing); }
+  .drill .dhead .prog { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .drill .dhead .x { margin-left: auto; }
+  .drill .qtext { font-size: 15px; font-weight: 560; line-height: 1.45; margin-bottom: 11px; letter-spacing: -0.01em; }
+  .drill textarea { width: 100%; min-height: 74px; margin-bottom: 9px; }
+  .drill .guidance { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px 11px; margin-bottom: 10px; font-size: 12.5px; }
+  .drill .guidance b { color: var(--go-ink); }
+  .drill .guidance .probe { color: var(--muted); margin-top: 5px; }
+  .drill .dctl { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+
+  /* note box */
+  .notebox { display: flex; gap: 8px; margin-top: 12px; align-items: flex-start; }
+  .notebox textarea { flex: 1; min-height: 40px; font-size: 12.5px; }
+  .notes-line { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 9px; line-height: 1.5; }
+  .notes-line.faded { color: var(--faint); }
+
+  .ivnotes { margin: 9px 0; }
+  .ivnotes .n { font-size: 12px; padding: 5px 0; border-top: 1px dotted var(--line); color: var(--ink); }
+  .ivnotes .n .t { font-family: var(--mono); color: var(--faint); font-size: 10.5px; }
+
+  /* actions */
+  .acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+  .acts .grow { flex: 1; }
+  .btn { border-radius: var(--r-sm); padding: 8px 15px; font-size: 13px; font-weight: 550; border: 1px solid var(--line-strong);
+    background: var(--surface); color: var(--ink); transition: border-color .12s, background .12s, transform .08s; white-space: nowrap; }
+  .btn:hover { border-color: var(--ink); }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+  .btn.go { background: var(--go); border-color: var(--go); color: #fff; }
+  .btn.go:hover { background: var(--go-ink); border-color: var(--go-ink); }
+  .btn.ghost { background: transparent; }
+  .btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+  .btn.subtle { color: var(--muted); font-weight: 500; }
+  .btn.chat { border-color: color-mix(in srgb, var(--interviewing) 50%, var(--line)); color: var(--interviewing); }
+  .btn.chat:hover { border-color: var(--interviewing); background: color-mix(in srgb, var(--interviewing) 8%, var(--surface)); }
+  .btn.sm { padding: 6px 11px; font-size: 12px; }
+  .btn:disabled { opacity: .5; cursor: wait; }
+
+  .passform { display: none; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 11px; padding: 11px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); }
+  .passform.show { display: flex; }
+  .passform .chipbtn { font-size: 12px; border: 1px solid var(--line-strong); background: var(--surface); border-radius: 999px; padding: 5px 12px; }
+  .passform .chipbtn:hover { border-color: var(--danger); color: var(--danger); }
+  .passform input { flex: 1 1 200px; }
+
+  /* addround */
+  .addround { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  .addround input[data-round-round]{ flex: 1 1 150px; }
+  .addround input[data-round-date]{ width: 140px; }
+  .addround input[data-round-interviewers]{ flex: 1 1 150px; }
+
+  .empty { text-align: center; color: var(--muted); padding: 50px 20px; }
+  .empty .big { font-size: 15px; font-weight: 560; color: var(--ink); margin-bottom: 5px; }
+  .empty .small { font-size: 13px; }
+
+  .foot { margin: 20px 0 40px; font-family: var(--mono); font-size: 10.5px; color: var(--faint); line-height: 1.6; }
+
+  /* ---------- prompt modal ---------- */
+  .scrim { position: fixed; inset: 0; background: rgba(20,24,32,.42); backdrop-filter: blur(2px); display: none; z-index: 50; }
+  .scrim.show { display: block; }
+  .sheet { position: fixed; z-index: 51; right: 0; top: 0; bottom: 0; width: min(560px, 100%); background: var(--surface);
+    border-left: 1px solid var(--line); box-shadow: var(--shadow-lg); display: none; flex-direction: column; }
+  .sheet.show { display: flex; animation: slidein .18s ease; }
+  @keyframes slidein { from { transform: translateX(24px); opacity: .6; } to { transform: none; opacity: 1; } }
+  .sheet .sh-top { padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }
+  .sheet .sh-kind { display: inline-flex; align-items: center; gap: 7px; font-size: 10.5px; font-weight: 650; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--interviewing); background: color-mix(in srgb, var(--interviewing) 11%, var(--surface));
+    padding: 4px 10px; border-radius: 999px; margin-bottom: 10px; }
+  .sheet h3 { font-size: 17px; font-weight: 640; letter-spacing: -0.01em; }
+  .sheet .sh-desc { font-size: 12.5px; color: var(--muted); margin-top: 5px; line-height: 1.5; }
+  .sheet .sh-body { padding: 16px 20px; overflow-y: auto; flex: 1; }
+  .sheet .sh-label { font-size: 11px; font-weight: 620; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 7px; }
+  .sheet textarea { width: 100%; min-height: 230px; font-family: var(--mono); font-size: 11.5px; line-height: 1.55; }
+  .sheet .steps { margin-top: 15px; font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+  .sheet .steps ol { margin: 6px 0 0 18px; }
+  .sheet .sh-foot { padding: 14px 20px; border-top: 1px solid var(--line); display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+  .sheet .sh-foot .grow { flex: 1; }
+  .sh-close { position: absolute; top: 16px; right: 18px; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line);
+    background: var(--surface); color: var(--muted); font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
+  .sh-close:hover { border-color: var(--ink); color: var(--ink); }
+
+  .kbd { font-family: var(--mono); font-size: 10px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; color: var(--muted); background: var(--surface-2); }
 </style>
 </head>
 <body>
-  <header class="masthead">
-    <h1>Job <span>/</span> Dispatch</h1>
-    <span class="stamp" id="stamp"></span>
-    <span class="spacer"></span>
-    <div class="runbtns">
-      <button id="refreshBoard" title="Rebuild this board from the latest jobs.json">Refresh board data</button>
-      <button id="runNow" title="Trigger a research run right now">Run research now</button>
-    </div>
-  </header>
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">
+        <div class="glyph" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div>
+          <h1>Signal</h1>
+          <div class="sub">job search command · real roles, ranked</div>
+        </div>
+      </div>
+      <span class="spacer"></span>
+      <span class="stamp" id="stamp"></span>
+      <div class="toolbtns">
+        <button class="tbtn icon-btn" id="themeBtn" title="Toggle light / dark" aria-label="Toggle theme">◐</button>
+        <button class="tbtn" id="refreshBoard" title="Rebuild this board from the latest jobs.json">Refresh</button>
+        <button class="tbtn" id="runNow" title="Trigger a research run right now">Find new roles</button>
+      </div>
+    </header>
 
-  <div class="banner" id="banner" role="status"></div>
+    <nav class="pipe" id="pipe" role="tablist" aria-label="Pipeline stages"></nav>
+    <div class="momentum" id="momentum"></div>
 
-  <div class="syncbar" id="syncbar">
-    <div class="head">
-      <b id="synccount"></b>
-      <button class="btn primary" id="syncNow">Sync now</button>
-      <button class="btn" id="copySync">Copy for chat</button>
-      <button class="btn" id="clearSync" title="Discard queued decisions">Discard</button>
-      <span class="note" style="margin:0">Sync now applies these automatically (needs the Claude app open, and a Drive tool configured — see README). Copy for chat is the manual fallback and always works.</span>
+    <div class="banner" id="banner" role="status"></div>
+
+    <div class="syncbar" id="syncbar">
+      <div class="head">
+        <b id="synccount"></b>
+        <button class="btn go sm" id="syncNow">Sync now</button>
+        <button class="btn sm" id="copySync">Copy for chat</button>
+        <button class="btn subtle sm" id="clearSync" title="Discard queued decisions">Discard</button>
+        <span class="note">Sync now applies these automatically (needs the Claude app open + a Drive tool configured — see README). Copy for chat is the manual fallback and always works.</span>
+      </div>
+      <textarea id="synctext" readonly aria-label="Sync text for chat"></textarea>
     </div>
-    <textarea id="synctext" readonly aria-label="Sync text for chat"></textarea>
+
+    <div id="qwrap"></div>
+
+    <main class="board" id="board"></main>
+
+    <p class="foot" id="foot"></p>
   </div>
 
-  <div id="qwrap"></div>
+  <div class="scrim" id="scrim"></div>
+  <aside class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sh-top">
+      <button class="sh-close" id="sheetClose" aria-label="Close">✕</button>
+      <span class="sh-kind" id="sheetKind"></span>
+      <h3 id="sheetTitle"></h3>
+      <div class="sh-desc" id="sheetDesc"></div>
+    </div>
+    <div class="sh-body">
+      <div class="sh-label">Prompt — edit anything, then copy into Claude</div>
+      <textarea id="sheetText" aria-label="Prompt to copy into chat"></textarea>
+      <div class="steps" id="sheetSteps"></div>
+    </div>
+    <div class="sh-foot">
+      <button class="btn primary" id="sheetCopy">Copy &amp; open Claude</button>
+      <span class="grow"></span>
+      <span class="stamp">Context stays current — the prompt points Claude at your live <span class="mono">jobs.json</span> + <span class="mono">Profile/</span></span>
+    </div>
+  </aside>
 
-  <nav class="tabs" id="tabs" role="tablist"></nav>
-  <main class="board" id="board"></main>
-  <p class="foot">This board is a snapshot of jobs.json embedded at build time — “Refresh board data” rebuilds it, “Run research now” hunts for new jobs (both need the Claude app open; reload the artifact afterwards). Marking a job “I'm interested” auto-drafts a tailored resume + cover letter on the next Sync (previews show up here — real files live in your Applications folder). Scheduling an interview round moves a job to Interviewing and queues auto-generated study notes; “Talk about this” copies full job/interview context to paste into a new chat message. Submission always happens in chat with your explicit approval.</p>
-
-<script type="application/json" id="jobdata">{"_comment": "Schema reference only — every value below is fictional. Real data lives in jobs.json (gitignored). Copy this file's structure, not its content, to start jobs.json: {\"jobs\": [], \"daily_questions\": [], \"activity_log\": [], \"updated_at\": null}", "updated_at": "2026-07-07T09:12:00", "jobs": [{"id": "2026-07-06-example-corp-senior-ai-engineer", "title": "Senior AI Engineer, Agent Platform", "company": "Example Corp", "location": "Remote (US)", "arrangement": "remote", "type": "full-time", "source": "boards.greenhouse.io", "url": "https://boards.greenhouse.io/examplecorp/jobs/0000000", "salary_posted": "$160,000 - $190,000", "market_range": "$150k-$195k base for this role/region", "est_company_pay": "Series B, likely mid-to-upper band given recent funding", "ask_range": "$175,000 - $185,000", "fit_score": 82, "fit_reasons": ["Direct experience building production agentic/LLM pipelines", "Track record shipping systems solo end-to-end, matching this team's small-team structure"], "gaps": ["No prior experience in this company's specific industry vertical"], "legit_score": 88, "legit_evidence": ["Live on company's own Greenhouse board", "Named hiring manager in the JD", "Company has recent funding announcement and active engineering blog"], "legit_flags": [], "jd_summary": "Example Corp is hiring a senior engineer to build and scale their agentic automation platform, focused on production reliability and multi-step tool-use workflows.", "keywords": ["LLM agents", "tool use", "RAG", "production reliability", "Python"], "status": "new", "date_found": "2026-07-06T09:00:00", "notes": [], "documents_path": null, "date_applied": null, "applied_via": null, "apply_fill_status": null, "apply_fill_notes": null, "interviews": []}, {"id": "2026-07-05-northwind-staff-pm", "title": "Staff Product Manager, AI Platform", "company": "Northwind Software", "location": "Hybrid — Anytown, ST", "arrangement": "hybrid", "type": "full-time", "source": "jobs.lever.co", "url": "https://jobs.lever.co/northwind/0000000", "salary_posted": "not listed", "market_range": "$170k-$210k base for Staff PM, AI, this region", "est_company_pay": "Established company, likely mid-band", "ask_range": "$185,000 - $195,000", "fit_score": 74, "fit_reasons": ["Strong product strategy + technical fluency crossover", "Enterprise deployment experience matches the JD's stated need"], "gaps": ["JD emphasizes a specific vertical domain not directly represented in background"], "legit_score": 70, "legit_evidence": ["On company's own Lever board", "Specific team/reporting line named"], "legit_flags": ["Comp not disclosed"], "jd_summary": "Northwind is hiring a Staff PM to own the roadmap for their internal AI platform used across three product lines.", "keywords": ["product strategy", "AI platform", "stakeholder management", "roadmap"], "status": "interested", "date_found": "2026-07-05T14:00:00", "notes": [{"at": "2026-07-06T10:00:00", "note": "Recruiter reached out on LinkedIn, seems responsive."}], "documents_path": "Applications/Northwind Software - Staff Product Manager/", "date_applied": null, "applied_via": null, "apply_fill_status": null, "apply_fill_notes": null, "interviews": []}], "daily_questions": [{"id": "q-example-1", "question": "Example: are you open to roles requiring occasional travel (<10%)?", "answer": null, "answered_at": null}], "activity_log": [{"at": "2026-07-06T09:05:00", "event": "added 2026-07-06-example-corp-senior-ai-engineer (Example Corp — Senior AI Engineer, Agent Platform)"}]}</script>
+<script type="application/json" id="jobdata">{"updated_at": "2026-07-08T08:40:00", "jobs": [{"id": "2026-07-08-example-corp-senior-ai-engineer", "title": "Senior AI Engineer, Agent Platform", "company": "Example Corp", "location": "Remote (US)", "arrangement": "remote", "type": "full-time", "source": "boards.greenhouse.io", "url": "https://example.com", "salary_posted": "$185,000 - $215,000", "market_range": "$170k-$220k base for this role/region", "est_company_pay": "Series C, likely upper band given recent raise", "ask_range": "$205,000 - $215,000", "fit_score": 88, "fit_reasons": ["Shipped production agentic/LLM pipelines end-to-end, exactly the team's mandate", "Track record owning systems solo, matching their small-team structure", "Deep tool-use / eval experience the JD calls out as a must-have"], "gaps": ["No prior work in their specific industry vertical (healthcare)"], "legit_score": 91, "legit_evidence": ["Live on company's own Greenhouse board", "Named hiring manager in JD", "Recent funding + active eng blog"], "legit_flags": [], "jd_summary": "Build and scale Example Corp's agentic automation platform — multi-step tool-use workflows with a hard focus on production reliability and evals.", "keywords": ["LLM agents", "tool use", "RAG", "evals", "Python"], "status": "new", "date_found": "2026-07-08T07:00:00", "notes": [], "documents_path": null, "date_applied": null, "applied_via": null, "interviews": []}, {"id": "2026-07-07-brightwave-ml-eng", "title": "Machine Learning Engineer (Remote)", "company": "Brightwave Talent Group", "location": "Remote — Worldwide", "arrangement": "remote", "type": "contract", "source": "aggregator repost", "url": "https://example.com", "salary_posted": "$90 - $140 / hr", "market_range": "$70-$120/hr for comparable contract ML work", "est_company_pay": "Third-party recruiter; end client undisclosed", "ask_range": "$110 - $130 / hr", "fit_score": 61, "fit_reasons": ["Core ML skills match", "Fully remote"], "gaps": ["Recruiter won't name the end client", "Vague, generic JD copied across many boards"], "legit_score": 38, "legit_evidence": ["Posting exists on two aggregators"], "legit_flags": ["No company-owned posting found", "Comp range implausibly wide", "Generic 'apply with resume' email, no ATS", "Reposted 40+ times this month"], "jd_summary": "Generic ML engineer listing from a staffing agency; end client and team unspecified.", "keywords": ["ML", "Python", "remote"], "status": "new", "date_found": "2026-07-07T11:00:00", "notes": [], "documents_path": null, "date_applied": null, "applied_via": null, "interviews": []}, {"id": "2026-07-06-northwind-staff-pm", "title": "Staff Product Manager, AI Platform", "company": "Northwind Software", "location": "Hybrid — Austin, TX", "arrangement": "hybrid", "type": "full-time", "source": "jobs.lever.co", "url": "https://example.com", "salary_posted": "not listed", "market_range": "$180k-$225k base for Staff PM, AI, this region", "est_company_pay": "Established, likely mid-band", "ask_range": "$205,000 - $215,000", "fit_score": 76, "fit_reasons": ["Product strategy + deep technical fluency crossover", "Enterprise deployment experience matches JD"], "gaps": ["JD emphasizes a vertical not directly in background"], "legit_score": 82, "legit_evidence": ["On company's own Lever board", "Specific reporting line named"], "legit_flags": ["Comp not disclosed"], "jd_summary": "Own the roadmap for Northwind's internal AI platform used across three product lines.", "keywords": ["product strategy", "AI platform", "roadmap", "stakeholders"], "status": "drafts_ready", "date_found": "2026-07-06T14:00:00", "notes": [{"at": "2026-07-06T10:00:00", "note": "Recruiter reached out on LinkedIn, responsive."}], "documents_path": "Applications/Northwind Software - Staff Product Manager/", "resume_preview": "JOSEPH Y.  ·  Staff Product Manager, AI Platform\n\nSUMMARY\nProduct leader with a builder's background — 8 years shipping AI/ML platforms used by enterprise teams. Owned roadmap and delivery for multi-product internal tooling...\n\nEXPERIENCE\nGain Solutions — Founder / Head of Product\n· Built and shipped an agentic automation platform end-to-end...\n· Drove adoption across 3 product lines, cutting manual ops 60%...", "resume_host_path": "/Users/you/Documents/job-search/Applications/Northwind Software - Staff Product Manager/Resume.pdf", "cover_letter_preview": "Dear Northwind Hiring Team,\n\nYour internal AI platform sitting across three product lines is exactly the kind of high-leverage surface I've spent my career building...", "cover_letter_host_path": "/Users/you/Documents/job-search/Applications/Northwind Software - Staff Product Manager/Cover Letter.pdf", "date_applied": null, "applied_via": null, "interviews": []}, {"id": "2026-07-02-lumen-founding-ai", "title": "Founding AI Engineer", "company": "Lumen Systems", "location": "San Francisco (onsite 3d/wk)", "arrangement": "hybrid", "type": "full-time", "source": "boards.greenhouse.io", "url": "https://example.com", "salary_posted": "$190,000 - $230,000 + 0.5-1.0% equity", "market_range": "$180k-$225k base + meaningful equity", "est_company_pay": "Seed+, cash-conservative, equity-heavy", "ask_range": "$215,000 + 0.9% equity", "fit_score": 84, "fit_reasons": ["Founding-engineer autonomy fits how I work", "Full ownership of the AI stack"], "gaps": ["Onsite 3 days/week in SF"], "legit_score": 87, "legit_evidence": ["Founder-signed JD", "YC-backed, verifiable"], "legit_flags": [], "jd_summary": "First AI hire at Lumen — own the entire model + agent stack from data to eval to prod.", "keywords": ["founding", "agents", "eval", "infra"], "status": "interested", "date_found": "2026-07-02T09:00:00", "notes": [], "documents_path": null, "date_applied": null, "applied_via": null, "interviews": []}, {"id": "2026-06-24-acme-ai-lead", "title": "AI Engineering Lead", "company": "Acme Robotics", "location": "Remote (US)", "arrangement": "remote", "type": "full-time", "source": "boards.greenhouse.io", "url": "https://example.com", "salary_posted": "$200,000 - $240,000", "market_range": "$195k-$240k for AI lead, this region", "est_company_pay": "Series B, mid-to-upper band", "ask_range": "$225,000 - $235,000", "fit_score": 79, "fit_reasons": ["Leadership + hands-on IC balance matches", "Robotics-adjacent perception work in background"], "gaps": ["First formal lead title"], "legit_score": 89, "legit_evidence": ["Company Greenhouse", "Recruiter is a real employee (verified LinkedIn)"], "legit_flags": [], "jd_summary": "Lead a small AI team building perception + planning for warehouse robots.", "keywords": ["leadership", "perception", "planning", "robotics"], "status": "applied", "date_found": "2026-06-24T09:00:00", "date_applied": "2026-06-25", "applied_via": "Company site (Greenhouse)", "notes": [{"at": "2026-06-25T12:00:00", "note": "Applied; auto-ack email received."}], "documents_path": "Applications/Acme Robotics - AI Engineering Lead/", "interviews": []}, {"id": "2026-06-15-vertex-ml-platform", "title": "ML Platform Engineer", "company": "Vertex Analytics", "location": "Remote (US)", "arrangement": "remote", "type": "full-time", "source": "jobs.ashbyhq.com", "url": "https://example.com", "salary_posted": "$175,000 - $205,000", "market_range": "$170k-$205k", "est_company_pay": "Series C, mid band", "ask_range": "$195,000 - $205,000", "fit_score": 81, "fit_reasons": ["Platform/infra depth is a direct match", "Shipped internal ML tooling before"], "gaps": ["Less Kubernetes depth than JD prefers"], "legit_score": 90, "legit_evidence": ["Company Ashby board", "Named team + manager"], "legit_flags": [], "jd_summary": "Own the ML platform: training infra, feature store, model serving, and eval tooling.", "keywords": ["ML platform", "infra", "serving", "feature store", "eval"], "status": "interviewing", "date_found": "2026-06-15T09:00:00", "date_applied": "2026-06-16", "applied_via": "Company site (Ashby)", "notes": [{"at": "2026-06-22T12:00:00", "note": "Recruiter call went well; moving to onsite loop."}], "documents_path": "Applications/Vertex Analytics - ML Platform Engineer/", "interviews": [{"id": "int-vertex-1", "round": "Recruiter Screen", "date": "2026-06-22", "format": "phone", "interviewers": "Dana R. (Recruiter)", "prep": {"study_notes": "Vertex just launched a feature-store product; know their public benchmarks and the 3 named customers from their blog.", "best_practices": "Keep it high-level; land the platform-ownership throughline; state comp expectation confidently.", "recommended_questions": "What does the interview loop look like? Why is the role open — growth or backfill?"}, "my_notes": [{"at": "2026-06-22T13:00:00", "note": "Dana said comp band tops at ~$205k base + 0.3% equity."}]}, {"id": "int-vertex-2", "round": "Technical — System Design", "date": "2026-07-10", "format": "video", "interviewers": "Priya M. (Staff Eng), Marcus L. (EM)", "prep": {"study_notes": "Review their serving stack (Ray + Triton per job posting). Have a crisp story on model rollout + shadow eval. Skim feature-store consistency tradeoffs.", "best_practices": "Clarify requirements before designing. Think out loud about failure modes and observability, not just the happy path.", "recommended_questions": "How do you catch training/serving skew today? What's the biggest platform pain the team feels weekly?", "mock_questions": [{"q": "Design a model-serving platform that supports safe rollouts for 200+ models. Start with requirements.", "guidance": "Pin down SLOs, traffic shape, and rollout safety first. Cover shadow/canary, rollback, and observability — not just the request path.", "probes": "How do you detect a bad model in prod? How do you handle a model 10x slower than the last?"}, {"q": "Walk me through the hardest production incident you owned. What did you change afterward?", "guidance": "STAR, weighted to the systemic fix. Show you turned one incident into a durable guardrail.", "probes": "How did you measure that it worked? What did you deprioritize to ship the fix?"}, {"q": "How would you design an eval harness the whole team trusts?", "guidance": "Talk about golden sets, drift, and making evals cheap to run in CI. Trust = reproducibility + speed.", "probes": "How do you keep evals from rotting? Offline vs online?"}, {"q": "What questions do you have for us?", "guidance": "Ask 2-3 sharp ones from the prep panel; show you're evaluating them too.", "probes": ""}]}, "my_notes": []}]}, {"id": "2026-05-30-helios-principal-ai", "title": "Principal AI Engineer", "company": "Helios Health", "location": "Remote (US)", "arrangement": "remote", "type": "full-time", "source": "boards.greenhouse.io", "url": "https://example.com", "salary_posted": "$230,000 - $270,000 + equity", "market_range": "$225k-$270k for Principal, this region", "est_company_pay": "Series D, upper band", "ask_range": "$255,000 + equity", "fit_score": 86, "fit_reasons": ["Principal-level scope matches trajectory", "Clinical-AI safety framing plays to strengths"], "gaps": [], "legit_score": 94, "legit_evidence": ["Company Greenhouse", "Full loop completed", "Offer in writing"], "legit_flags": [], "jd_summary": "Set the technical direction for Helios's clinical AI systems and mentor a growing team.", "keywords": ["principal", "clinical AI", "safety", "leadership"], "status": "offer", "date_found": "2026-05-30T09:00:00", "date_applied": "2026-06-01", "applied_via": "Company site", "notes": [{"at": "2026-07-07T16:00:00", "note": "Verbal offer: $255k base, 0.4% equity, $20k sign-on. Have until 7/18 to decide."}], "documents_path": "Applications/Helios Health - Principal AI Engineer/", "interviews": [{"id": "int-helios-1", "round": "Final / Values", "date": "2026-06-28", "format": "video", "interviewers": "VP Eng + CTO", "prep": {"study_notes": "Reviewed their safety whitepaper.", "best_practices": "Lead with judgment and mentorship examples.", "recommended_questions": "What does success look like in 6 months?"}, "my_notes": [{"at": "2026-06-28T15:00:00", "note": "Strong rapport with the CTO; they asked about start-date flexibility."}]}]}, {"id": "2026-06-10-globex-data-scientist", "title": "Senior Data Scientist", "company": "Globex Corp", "location": "Onsite — New York, NY", "arrangement": "onsite", "type": "full-time", "source": "linkedin", "url": "https://example.com", "salary_posted": "$150,000 - $175,000", "market_range": "$150k-$185k", "est_company_pay": "Large enterprise, rigid bands", "ask_range": "n/a", "fit_score": 58, "fit_reasons": ["Strong stats/DS foundation"], "gaps": ["Fully onsite in NYC — outside location prefs", "More analytics than building"], "legit_score": 85, "legit_evidence": ["Company careers page"], "legit_flags": [], "jd_summary": "Analytics-heavy DS role supporting finance org; onsite in NYC.", "keywords": ["data science", "analytics", "SQL"], "status": "passed", "date_found": "2026-06-10T09:00:00", "notes": [{"at": "2026-06-10T10:00:00", "note": "Passed — onsite NYC, and more analytics than building."}], "documents_path": null, "date_applied": null, "applied_via": null, "interviews": []}], "daily_questions": [{"id": "q-1", "question": "For Lumen (founding role), are you open to onsite 3 days/week in SF for the right equity?", "answer": null, "answered_at": null}, {"id": "q-2", "question": "What's the lowest base you'd accept if equity and scope are excellent?", "answer": null, "answered_at": null}], "activity_log": []}</script>
 <script>
 (function () {
   const DB = JSON.parse(document.getElementById("jobdata").textContent);
-  const TABS = [
-    { key: "decide",  label: "Needs Decision", statuses: ["new"], hot: true },
-    { key: "flight",  label: "In Flight", statuses: ["interested", "plan_pending", "drafts_ready", "approved_to_submit"] },
-    { key: "applied", label: "Applied", statuses: ["applied"] },
-    { key: "interviewing", label: "Interviewing", statuses: ["interviewing", "offer"] },
-    { key: "archive", label: "Archive", statuses: ["passed", "skipped", "expired", "rejected"] }
-  ];
-  const STATUS_LABEL = { new: "NEEDS DECISION", interested: "INTERESTED", plan_pending: "PLAN PENDING",
-    drafts_ready: "DRAFTS READY", approved_to_submit: "READY TO SUBMIT", applied: "APPLIED",
-    interviewing: "INTERVIEWING", offer: "OFFER", rejected: "REJECTED",
-    passed: "PASSED", skipped: "SKIPPED", expired: "EXPIRED" };
-  const STATUS_CLASS = { new: "s-new", applied: "s-applied", offer: "s-applied",
-    passed: "s-dead", skipped: "s-dead", expired: "s-dead", rejected: "s-dead" };
 
   // Set this to your Google Drive connector's "create file" tool name to enable one-click
   // "Sync now" (ToolSearch for "drive create file" to find yours). Optional — without it,
   // "Sync now" fails gracefully and "Copy for chat" still works as a manual fallback.
   const DRIVE_CREATE = "REPLACE_WITH_YOUR_DRIVE_CREATE_FILE_TOOL_NAME";
-  let activeTab = localStorage.getItem("jd-tab") || "decide";
+
+  const STAGES = [
+    { key: "needs",  label: "Needs you",     statuses: ["new", "drafts_ready"], attention: true },
+    { key: "flight", label: "In flight",     statuses: ["interested", "plan_pending", "approved_to_submit"], hue: "var(--flight)" },
+    { key: "applied",label: "Applied",       statuses: ["applied"], hue: "var(--applied)" },
+    { key: "iv",     label: "Interviewing",  statuses: ["interviewing"], hue: "var(--interviewing)" },
+    { key: "offer",  label: "Offers",        statuses: ["offer"], hue: "var(--offer)" },
+    { key: "archive",label: "Archive",       statuses: ["passed", "skipped", "expired", "rejected"], hue: "var(--dead)" }
+  ];
+  const STATUS_LABEL = { new: "Decide", interested: "Interested", plan_pending: "Planning",
+    drafts_ready: "Review draft", approved_to_submit: "Ready to submit", applied: "Applied",
+    interviewing: "Interviewing", offer: "Offer", rejected: "Rejected",
+    passed: "Passed", skipped: "Skipped", expired: "Expired" };
+  const STATUS_HUE = { new: "var(--accent)", interested: "var(--flight)", plan_pending: "var(--flight)",
+    drafts_ready: "var(--accent)", approved_to_submit: "var(--flight)", applied: "var(--applied)",
+    interviewing: "var(--interviewing)", offer: "var(--offer)",
+    passed: "var(--dead)", skipped: "var(--dead)", expired: "var(--dead)", rejected: "var(--dead)" };
+  const DOC_FIRST = new Set(["interested", "plan_pending", "drafts_ready", "approved_to_submit", "applied"]);
+
+  let activeTab = localStorage.getItem("jd-tab") || "needs";
   const openRows = new Set();
+  const mockState = {}; // ivKey -> {i, revealed} (survives rerenders)
+
+  const $ = (s, el) => (el || document).querySelector(s);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  /* ---------- theme ---------- */
+  const savedTheme = localStorage.getItem("jd-theme");
+  if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
+  function toggleTheme() {
+    const cur = document.documentElement.getAttribute("data-theme");
+    const isDark = cur ? cur === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const next = isDark ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("jd-theme", next);
+  }
 
   /* ---------- company application history ---------- */
   function normCo(c) {
@@ -224,27 +472,23 @@
   }
   const APPLIED_BY_CO = {};
   (DB.jobs || []).forEach(j => {
-    if (j.status === "applied") {
+    if (j.status === "applied" || j.status === "interviewing" || j.status === "offer") {
       const k = normCo(j.company);
-      (APPLIED_BY_CO[k] = APPLIED_BY_CO[k] || []).push({ id: j.id, title: j.title, date: (j.date_applied || (j.status_changed_at || "")).slice(0, 10) });
+      (APPLIED_BY_CO[k] = APPLIED_BY_CO[k] || []).push({ id: j.id, title: j.title, date: (j.date_applied || j.status_changed_at || "").slice(0, 10) });
     }
   });
   function coHistoryChip(j) {
     const prior = (APPLIED_BY_CO[normCo(j.company)] || []).filter(a => a.id !== j.id);
     if (!prior.length) return "";
-    const last = prior.map(a => a.date).sort().slice(-1)[0];
-    const tip = prior.map(a => a.title + " (" + a.date + ")").join(" • ");
-    return '<span class="chip co-applied" title="' + esc(tip) + '">APPLIED HERE ×' + prior.length + " · last " + esc(last) + "</span>";
+    const last = prior.map(a => a.date).filter(Boolean).sort().slice(-1)[0] || "";
+    const tip = prior.map(a => a.title + (a.date ? " (" + a.date + ")" : "")).join(" • ");
+    return '<span class="chip hist" title="' + esc(tip) + '">applied here ×' + prior.length + (last ? " · " + esc(last) : "") + "</span>";
   }
 
-  const $ = (s, el) => (el || document).querySelector(s);
-  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-
-  /* ---------- decision queue (localStorage) ---------- */
+  /* ---------- decision queue (localStorage) — protocol unchanged ---------- */
   function getQ() { try { return JSON.parse(localStorage.getItem("jd-queue") || "[]"); } catch (e) { return []; } }
   function setQ(q) { localStorage.setItem("jd-queue", JSON.stringify(q)); }
   function reconcile() {
-    // drop queued items the data snapshot already reflects
     const byId = {}; (DB.jobs || []).forEach(j => byId[j.id] = j);
     const answered = {}; (DB.daily_questions || []).forEach(q => { if (q.answer != null) answered[q.id] = true; });
     setQ(getQ().filter(d => {
@@ -273,224 +517,349 @@
       return "answer " + d.id + ": " + d.answer;
     }).join("\n");
   }
-
+  function effStatus(j) { const d = queuedFor(j.id); return d ? d.status : j.status; }
   function banner(msg, cls) { const b = $("#banner"); b.className = "banner" + (msg ? " " + cls : ""); b.textContent = msg || ""; }
 
+  /* ---------- small renderers ---------- */
   function meter(score) {
-    const bars = Math.max(1, Math.min(5, Math.round(score / 20)));
-    let h = '<div class="meter" title="Fit ' + score + '/100" aria-label="Fit score ' + score + ' of 100">';
+    const bars = Math.max(1, Math.min(5, Math.round((score || 0) / 20)));
+    let h = '<div class="bars" title="Fit ' + (score || 0) + '/100" aria-label="Fit score ' + (score || 0) + ' of 100">';
     for (let i = 1; i <= 5; i++) h += '<i class="' + (i <= bars ? "on" : "") + '"></i>';
-    return h + '</div><div class="fitnum">' + score + "</div>";
+    return '<div class="fit">' + h + '</div><div class="n">' + (score || 0) + '</div><div class="lbl">fit</div></div>';
+  }
+  function legitBadge(ls) {
+    if (ls == null) return '<span class="legit mid"><span class="g">?</span>unverified</span>';
+    const cls = ls >= 75 ? "hi" : ls >= 55 ? "mid" : "lo";
+    const g = ls >= 75 ? "✓" : ls >= 55 ? "•" : "⚠";
+    const t = ls >= 75 ? "real" : ls >= 55 ? "likely real" : "fake risk";
+    return '<span class="legit ' + cls + '" title="Legitimacy ' + ls + '/100 — 100 = certainly a real posting"><span class="g">' + g + '</span>' + t + ' ' + ls + '</span>';
   }
 
-  function effStatus(j) { const d = queuedFor(j.id); return d ? d.status : j.status; }
-
-  function rowHTML(j) {
-    const st = effStatus(j);
-    const queued = !!queuedFor(j.id);
-    const needs = st === "new";
-    const stCls = STATUS_CLASS[st] || "s-flight";
-    const ls = j.legit_score;
-    const legitChip = ls == null
-      ? '<span class="chip verify">REAL? UNSCORED</span>'
-      : ls >= 75 ? '<span class="chip legit">REAL ' + ls + "/100</span>"
-      : ls >= 55 ? '<span class="chip">REAL? ' + ls + "/100</span>"
-      : '<span class="chip verify">⚠ FAKE RISK · ' + ls + "/100</span>";
-    const inFlightOrLater = st !== "new";
-    const docsChip = j.documents_path
-      ? '<span class="chip docs-ready">DOCS READY</span>'
-      : (inFlightOrLater ? '<span class="chip docs-pending">DRAFTING…</span>' : "");
-    const ivCount = (j.interviews || []).length;
-    const ivChip = ivCount ? '<span class="chip iv-count">' + ivCount + " INTERVIEW" + (ivCount > 1 ? "S" : "") + "</span>" : "";
-    const chips = [
-      '<span class="chip type">' + esc(j.type || "") + "</span>",
-      '<span class="chip">' + esc(j.arrangement || "") + "</span>",
-      '<span class="chip">' + esc(j.location || "") + "</span>",
-      legitChip,
-      coHistoryChip(j),
-      docsChip,
-      ivChip,
-      queued ? '<span class="chip queued">QUEUED — HIT SYNC NOW</span>' : ""
-    ].join("");
-    const forLis = (j.fit_reasons || []).map(r => "<li>" + esc(r) + "</li>").join("");
-    const gapLis = (j.gaps || []).map(r => "<li>" + esc(r) + "</li>").join("");
-    const notes = (j.notes || []).map(n => esc(n.note)).join(" · ");
-    const markApplied = (st !== "applied")
-      ? '<button class="btn subtle" data-act="markapplied" data-id="' + esc(j.id) + '" title="I already applied to this myself">Mark applied</button>' : "";
-    const talkBtn = '<button class="btn subtle" data-act="talk" data-id="' + esc(j.id) + '" title="Copy full context for this job to paste into a new chat message">Talk about this</button>';
-    const openBtn = '<a class="btn subtle" href="' + esc(j.url) + '" target="_blank" rel="noopener">Open posting ↗</a>';
-    const secondary = '<span class="acts-secondary">' + openBtn + talkBtn + markApplied + "</span>";
-    const acts = needs
-      ? '<button class="btn primary" data-act="interested" data-id="' + esc(j.id) + '">I’m interested</button>' +
-        '<button class="btn danger" data-act="passform" data-id="' + esc(j.id) + '">Pass</button>' +
-        secondary
-      : secondary +
-        (st === "interested" ? '<span class="note">Drafting the resume &amp; cover letter automatically — happens as part of the next Sync.</span>' : "") +
-        (st === "drafts_ready" ? '<span class="note">Draft ready below — review it, then let Claude know in chat when it\'s approved to submit.</span>' : "");
-    return '<article class="row ' + (needs ? "needs" : "") + (openRows.has(j.id) ? " open" : "") + '" data-row="' + esc(j.id) + '">' +
-      '<div class="rowhead" data-toggle="' + esc(j.id) + '" tabindex="0" role="button" aria-expanded="' + openRows.has(j.id) + '">' +
-        "<div>" + meter(j.fit_score || 0) + "</div>" +
-        '<div class="who"><div class="title">' + esc(j.title) + '</div><div class="co">' + esc(j.company) + '</div><div class="chips">' + chips + "</div></div>" +
-        '<div class="comp"><span class="st ' + stCls + '">' + (STATUS_LABEL[st] || esc(st)) + "</span>" + esc(j.salary_posted || "comp unlisted") + "</div>" +
-      "</div>" +
-      '<div class="detail">' +
-        '<p class="jd">' + esc(j.jd_summary || "") + "</p>" +
-        '<div class="money"><div><b>Posted comp</b>' + esc(j.salary_posted || "—") + "</div><div><b>Market range</b>" + esc(j.market_range || "—") + "</div><div><b>Likely pays</b>" + esc(j.est_company_pay || "—") + '</div><div><b>Ask for</b><span style="color:var(--go);font-weight:600">' + esc(j.ask_range || "—") + "</span></div>" +
-          (j.applied_via ? "<div><b>Applied via</b>" + esc(j.applied_via) + "</div>" : "") +
-          (j.date_applied ? "<div><b>Applied on</b>" + esc(j.date_applied) + "</div>" : "") +
-        "</div>" +
-        (DOC_FIRST.has(st) ? docsHTML(j, st) + interviewsHTML(j) : interviewsHTML(j) + docsHTML(j, st)) +
-        matchReasoningHTML(j, ls, needs) +
-        '<div class="acts">' + acts + "</div>" +
-        '<div class="passform" data-passform="' + esc(j.id) + '">' +
-          ["Comp too low", "Role mismatch", "Company", "Location"].map(r => '<button class="chipbtn" data-pass="' + esc(j.id) + '" data-reason="' + r + '">' + r + "</button>").join("") +
-          '<input type="text" placeholder="other reason (helps me learn)" data-passinput="' + esc(j.id) + '">' +
-          '<button class="chipbtn" data-passcustom="' + esc(j.id) + '">Pass with note</button>' +
-        "</div>" +
-        '<div class="notebox"><textarea placeholder="Add a note, paste a transcript, recruiter email, anything — Claude reads these at check-in" data-noteinput="' + esc(j.id) + '"></textarea><button class="btn" data-addnote="' + esc(j.id) + '">Add note</button></div>' +
-        (notes ? '<div class="note">Notes: ' + notes + "</div>" : "") +
-        '<div class="note">Context files: drop transcripts/docs in JobSearch/context/' + esc(j.id) + "/ (in your project folder) — read at every check-in.</div>" +
-        '<div class="note">Found ' + esc((j.date_found || "").slice(0, 10)) + " · " + esc(j.source || "") + "</div>" +
-      "</div></article>";
+  /* ---------- comp intel ---------- */
+  function parseMoney(s) {
+    if (!s) return null;
+    const nums = [];
+    const re = /\$?\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*([kKmM])?/g; let m;
+    while ((m = re.exec(s)) !== null) {
+      let v = parseFloat(m[1].replace(/,/g, "")); if (isNaN(v)) continue;
+      const suf = (m[2] || "").toLowerCase();
+      if (suf === "k") v *= 1000; else if (suf === "m") v *= 1000000;
+      else if (v < 1000) v *= 1000; // "150" -> 150k in comp context
+      if (v >= 20000 && v <= 5000000) nums.push(v);
+    }
+    if (!nums.length) return null;
+    return { lo: Math.min.apply(null, nums), hi: Math.max.apply(null, nums) };
   }
-  // stages where "application documents" are the primary thing to look at, ahead of interview info
-  const DOC_FIRST = new Set(["interested", "plan_pending", "drafts_ready", "approved_to_submit", "applied"]);
-
-  function matchReasoningHTML(j, ls, expanded) {
-    const legit = (ls != null || (j.legit_evidence || []).length || (j.legit_flags || []).length)
-      ? '<div class="cols"><div class="for"><h4>Looks real because</h4><ul>' + (j.legit_evidence || []).map(r => "<li>" + esc(r) + "</li>").join("") + '</ul></div><div class="against"><h4>Fake/ghost risk (' + (ls == null ? "unscored" : ls + "/100 real") + ")</h4><ul>" + (j.legit_flags || []).map(r => "<li>" + esc(r) + "</li>").join("") + "</ul></div></div>"
-      : "";
-    const fit = '<div class="cols"><div class="for"><h4>Why you fit</h4><ul>' + (j.fit_reasons || []).map(r => "<li>" + esc(r) + "</li>").join("") + '</ul></div><div class="against"><h4>Why you might not</h4><ul>' + (j.gaps || []).map(r => "<li>" + esc(r) + "</li>").join("") + "</ul></div></div>";
-    const body = legit + fit;
-    if (expanded) return body; // still deciding — show it open, this is the whole point at this stage
-    return '<details class="fold"><summary>Match reasoning (fit, gaps, legitimacy)</summary><div class="fold-body">' + body + "</div></details>";
+  function money(n) { return "$" + Math.round(n / 1000) + "k"; }
+  function compModule(j) {
+    const posted = parseMoney(j.salary_posted), market = parseMoney(j.market_range), ask = parseMoney(j.ask_range);
+    let scale = "";
+    const ranges = [posted, market, ask].filter(Boolean);
+    if (ranges.length) {
+      const lo = Math.min.apply(null, ranges.map(r => r.lo));
+      const hi = Math.max.apply(null, ranges.map(r => r.hi));
+      const span = Math.max(1, hi - lo);
+      const pad = span * 0.08;
+      const pos = v => ((v - (lo - pad)) / (span + pad * 2)) * 100;
+      const band = (r, cls, tag) => r ? '<div class="band ' + cls + '" style="left:' + pos(r.lo).toFixed(1) + '%;width:' + Math.max(2, pos(r.hi) - pos(r.lo)).toFixed(1) + '%"><span class="tag">' + tag + '</span></div>' : "";
+      scale = '<div class="comp-scale"><div class="scale-track"><div class="scale-base"></div>' +
+        band(market, "market", "market") + band(posted, "posted", "posted") + band(ask, "ask", "your ask") + "</div></div>";
+    }
+    const row = (label, val, cls) => '<div class="r ' + (cls || "") + '"><b>' + label + '</b><span class="v">' + esc(val || "—") + "</span></div>";
+    return '<div class="module"><h4><span class="k" style="background:var(--offer)"></span>Compensation</h4>' + scale +
+      '<div class="comp-rows">' +
+        row("Posted", j.salary_posted) + row("Market range", j.market_range) +
+        row("Likely pays", j.est_company_pay) + row("Your ask", j.ask_range, "ask") +
+        (j.applied_via ? row("Applied via", j.applied_via) : "") +
+        (j.date_applied ? row("Applied on", (j.date_applied || "").slice(0, 10)) : "") +
+      '</div>' +
+      '<div class="acts" style="margin-top:11px"><button class="btn chat sm" data-act="negotiate" data-id="' + esc(j.id) + '">↗ Negotiation brief in chat</button></div>' +
+      '</div>';
   }
 
-  /* ---------- documents (resume/cover letter preview) ---------- */
+  /* ---------- reasoning ---------- */
+  function reasoningModule(j) {
+    const list = (arr, empty) => (arr && arr.length) ? "<ul>" + arr.map(r => "<li>" + esc(r) + "</li>").join("") + "</ul>" : '<ul><li style="color:var(--faint)">' + empty + "</li></ul>";
+    const fit = '<div class="module"><h4><span class="k" style="background:var(--go)"></span>Fit</h4><div class="cols">' +
+      '<div class="col for"><h5>Why you fit</h5>' + list(j.fit_reasons, "—") + "</div>" +
+      '<div class="col against"><h5>Where you might not</h5>' + list(j.gaps, "No notable gaps flagged") + "</div></div></div>";
+    const hasLegit = (j.legit_evidence || []).length || (j.legit_flags || []).length || j.legit_score != null;
+    const legit = hasLegit ? '<div class="module"><h4><span class="k" style="background:var(--applied)"></span>Legitimacy — ' + (j.legit_score == null ? "unverified" : j.legit_score + "/100 real") + "</h4><div class=\"cols\">" +
+      '<div class="col for"><h5>Looks real because</h5>' + list(j.legit_evidence, "—") + "</div>" +
+      '<div class="col against"><h5>Ghost / fake risk</h5>' + list(j.legit_flags, "No red flags") + "</div></div></div>" : "";
+    return fit + legit;
+  }
+
+  /* ---------- documents ---------- */
   function docBlock(label, previewText, hostPath) {
     if (!previewText && !hostPath) return "";
     return '<details class="doc"><summary><span>' + esc(label) + '</span><span class="path">' + esc(hostPath || "") + '</span>' +
       (hostPath ? '<button type="button" class="copypath" data-copypath="' + esc(hostPath) + '">Copy path</button>' : "") +
       '</summary><pre>' + esc(previewText || "(no text extracted)") + "</pre></details>";
   }
-  function docsHTML(j, st) {
+  function docsModule(j, st) {
     if (!j.documents_path && !j.resume_preview && !j.cover_letter_preview) {
-      if (!DOC_FIRST.has(st)) return ""; // "new"/archive jobs: nothing to show yet, don't clutter the card
-      return '<div class="docs-empty">No documents drafted yet — marking a job interested auto-drafts them on the next Sync.' +
-        '<button type="button" class="btn" data-act="draftnow" data-id="' + esc(j.id) + '">Draft now</button></div>';
+      if (!DOC_FIRST.has(st)) return "";
+      return '<div class="module"><h4><span class="k" style="background:var(--flight)"></span>Application documents</h4>' +
+        '<div class="docs-empty">Not drafted yet — marking a role interested auto-drafts a tailored resume + cover letter on the next Sync.' +
+        '<button type="button" class="btn sm" data-act="draftnow" data-id="' + esc(j.id) + '">Draft now</button></div></div>';
     }
-    return '<div class="docs"><h4>Application documents</h4>' +
+    return '<div class="module"><h4><span class="k" style="background:var(--flight)"></span>Application documents</h4>' +
       docBlock("Resume", j.resume_preview, j.resume_host_path) +
-      docBlock("Cover Letter", j.cover_letter_preview, j.cover_letter_host_path) +
-      "</div>";
+      docBlock("Cover Letter", j.cover_letter_preview, j.cover_letter_host_path) + "</div>";
   }
 
-  /* ---------- interview stage ---------- */
+  /* ---------- interviews + mock drill ---------- */
   function ivKey(jobId, ivId) { return jobId + "::" + ivId; }
+  function daysUntil(dateStr) {
+    if (!dateStr) return null;
+    const d = new Date(dateStr + (dateStr.length <= 10 ? "T12:00:00" : ""));
+    if (isNaN(d)) return null;
+    return Math.round((d - new Date()) / 86400000);
+  }
+  function mockQuestions(j, iv) {
+    const p = iv.prep || {};
+    if (Array.isArray(p.mock_questions) && p.mock_questions.length) {
+      return p.mock_questions.map(q => typeof q === "string" ? { q: q } : q);
+    }
+    // fallback bank generated from round format + role signals
+    const fmt = (iv.format || "").toLowerCase();
+    const kw = (j.keywords || []).slice(0, 3).join(", ");
+    const role = j.title || "this role";
+    const bank = [
+      { q: "Walk me through your background and why " + (j.company || "this team") + " caught your attention.",
+        guidance: "60–90s. Land on the throughline that maps to this role; end on why THIS company, specifically.", probes: "Why now? Why us over other offers?" },
+      { q: "Tell me about a system you owned end-to-end" + (kw ? " (ideally involving " + kw + ")" : "") + " — what was hard and what did you decide?",
+        guidance: "STAR, but weight the Decision. Name the tradeoff you rejected and why.", probes: "What would you do differently? How did you measure success?" }
+    ];
+    if (fmt.indexOf("phone") >= 0 || fmt.indexOf("screen") >= 0) {
+      bank.push({ q: "What are you looking for in your next role, and what's your comp expectation?", guidance: "Be crisp and confident; anchor to your ask range, don't undersell.", probes: "Timeline? Other processes in flight?" });
+    }
+    if (fmt.indexOf("onsite") >= 0 || fmt.indexOf("technical") >= 0 || fmt.indexOf("video") >= 0) {
+      bank.push({ q: "Design a system for " + role + "'s core problem. Start with requirements and constraints.", guidance: "Clarify scope first. State assumptions out loud. Reason about tradeoffs, not just the happy path.", probes: "How does it fail? How would you scale/observe it?" });
+      bank.push({ q: "Tell me about a time you disagreed with a decision. How did you handle it?", guidance: "Show you can commit-and-disagree; center the outcome and the relationship.", probes: "What did you learn? Would you escalate differently now?" });
+    }
+    bank.push({ q: "What questions do you have for me?", guidance: "Ask 2–3 sharp ones. Use the prep panel's 'Questions to ask'. Signal that you're evaluating them too.", probes: "" });
+    return bank;
+  }
+  function drillHTML(j, iv) {
+    const key = ivKey(j.id, iv.id);
+    const bank = mockQuestions(j, iv);
+    const st = mockState[key] || { i: 0, revealed: false };
+    mockState[key] = st;
+    const q = bank[st.i] || bank[0];
+    const guidance = st.revealed && (q.guidance || q.probes)
+      ? '<div class="guidance"><b>What a strong answer does</b><div>' + esc(q.guidance || "Structure it; quantify impact; tie it to their stack.") + "</div>" +
+        (q.probes ? '<div class="probe"><b style="color:var(--muted)">Likely follow-ups:</b> ' + esc(q.probes) + "</div>" : "") + "</div>"
+      : "";
+    return '<div class="drill" data-drill="' + esc(key) + '">' +
+      '<div class="dhead"><span class="lbl">Mock · ' + esc(iv.round || "Interview") + '</span>' +
+        '<span class="prog">Q' + (st.i + 1) + " / " + bank.length + '</span>' +
+        '<button class="btn subtle sm x" data-drill-close="' + esc(key) + '">Close</button></div>' +
+      '<div class="qtext">' + esc(q.q) + "</div>" +
+      '<textarea data-drill-answer="' + esc(key) + '" placeholder="Say it out loud, then jot the key points here…">' + esc(st.answer || "") + "</textarea>" +
+      guidance +
+      '<div class="dctl">' +
+        (st.revealed ? "" : '<button class="btn sm" data-drill-reveal="' + esc(key) + '">Reveal guidance</button>') +
+        (st.i < bank.length - 1 ? '<button class="btn primary sm" data-drill-next="' + esc(key) + '">Next question →</button>'
+                                : '<span class="notes-line faded" style="margin:0">Last question — nice work.</span>') +
+        '<button class="btn subtle sm" data-drill-save="' + esc(key) + '">Save answer to notes</button>' +
+      "</div></div>";
+  }
   function interviewHTML(j, iv) {
     const p = iv.prep || {};
-    const notes = (iv.my_notes || []).map(n => '<div class="n">' + esc((n.at || "").replace("T", " ")) + " — " + esc(n.note) + "</div>").join("");
-    const prepBlocks = (p.study_notes || p.best_practices || p.recommended_questions)
+    const key = ivKey(j.id, iv.id);
+    const notes = (iv.my_notes || []).map(n => '<div class="n"><span class="t">' + esc((n.at || "").replace("T", " ").slice(0, 16)) + "</span> — " + esc(n.note) + "</div>").join("");
+    const du = daysUntil(iv.date);
+    const when = iv.date ? '<span class="when' + (du != null && du >= 0 && du <= 3 ? " soon" : "") + '">' + (du == null ? esc(iv.date) : du < 0 ? "past" : du === 0 ? "today" : du === 1 ? "tomorrow" : "in " + du + "d") + "</span>" : "";
+    const prep = (p.study_notes || p.best_practices || p.recommended_questions)
       ? '<div class="prep">' +
-          '<div><b>Study notes</b>' + esc(p.study_notes || "—") + "</div>" +
-          "<div><b>Best practices</b>" + esc(p.best_practices || "—") + "</div>" +
-          "<div><b>Questions to ask</b>" + esc(p.recommended_questions || "—") + "</div>" +
-        "</div>"
-      : '<div class="note">Prep is generating — check back after the next Sync.</div>';
-    return '<div class="ivrow">' +
-      '<div class="ivhead"><span>' + esc(iv.round || "Interview") + '</span><span class="meta">' + esc(iv.date || "") + (iv.format ? " · " + esc(iv.format) : "") + (iv.interviewers ? " · " + esc(iv.interviewers) : "") + "</span></div>" +
-      prepBlocks +
-      (notes ? '<div class="ivnotes">' + notes + "</div>" : "") +
-      '<div class="notebox"><textarea placeholder="Notes from/about this round — Claude reads these too" data-ivnoteinput="' + esc(ivKey(j.id, iv.id)) + '"></textarea><button class="btn" data-ivaddnote="' + esc(ivKey(j.id, iv.id)) + '">Add note</button></div>' +
-    "</div>";
+          '<div class="p"><b>Study notes</b>' + esc(p.study_notes || "—") + "</div>" +
+          '<div class="p"><b>Best practices</b>' + esc(p.best_practices || "—") + "</div>" +
+          '<div class="p"><b>Questions to ask</b>' + esc(p.recommended_questions || "—") + "</div></div>"
+      : '<div class="notes-line">Prep is generating — check back after the next Sync.</div>';
+    const drillOpen = !!(mockState[key] && mockState[key].open);
+    return '<div class="ivround">' +
+      '<div class="ivtop"><span class="rnd">' + esc(iv.round || "Interview") + '</span>' +
+        '<span class="meta">' + esc(iv.date || "date TBD") + (iv.format ? " · " + esc(iv.format) : "") + (iv.interviewers ? " · " + esc(iv.interviewers) : "") + "</span>" + when + "</div>" +
+      '<div class="ivbody">' + prep +
+        '<div class="iv-actions">' +
+          '<button class="btn sm" data-drill-open="' + esc(key) + '">▶ Practice here</button>' +
+          '<button class="btn chat sm" data-act="mock" data-id="' + esc(j.id) + '" data-iv="' + esc(iv.id) + '">↗ Live mock in chat</button>' +
+          '<button class="btn chat sm" data-act="strategy" data-id="' + esc(j.id) + '" data-iv="' + esc(iv.id) + '">↗ Strategy brief</button>' +
+        "</div>" +
+        (drillOpen ? drillHTML(j, iv) : "") +
+        (notes ? '<div class="ivnotes">' + notes + "</div>" : "") +
+        '<div class="notebox"><textarea placeholder="Notes from/about this round — Claude reads these too" data-ivnoteinput="' + esc(key) + '"></textarea><button class="btn sm" data-ivaddnote="' + esc(key) + '">Add note</button></div>' +
+      "</div></div>";
   }
-  function interviewsHTML(j) {
+  function interviewsModule(j) {
     const rounds = (j.interviews || []).map(iv => interviewHTML(j, iv)).join("");
-    return '<div class="interviews"><h4>Interviews</h4>' + (rounds || '<div class="note">No rounds scheduled yet.</div>') +
+    return '<div class="module"><h4><span class="k" style="background:var(--interviewing)"></span>Interviews</h4>' +
+      (rounds || '<div class="notes-line">No rounds scheduled yet. Add one below once you hear back.</div>') +
       '<div class="addround">' +
         '<input type="text" placeholder="round (e.g. Phone Screen)" data-round-round data-round-for="' + esc(j.id) + '">' +
         '<input type="text" placeholder="date (YYYY-MM-DD)" data-round-date data-round-for="' + esc(j.id) + '">' +
-        '<select data-round-format data-round-for="' + esc(j.id) + '"><option value="phone">Phone</option><option value="video">Video</option><option value="onsite">Onsite</option><option value="take-home">Take-home</option><option value="other">Other</option></select>' +
+        '<select data-round-format data-round-for="' + esc(j.id) + '"><option value="phone">Phone</option><option value="video">Video</option><option value="onsite">Onsite</option><option value="technical">Technical</option><option value="take-home">Take-home</option><option value="other">Other</option></select>' +
         '<input type="text" placeholder="interviewer(s)" data-round-interviewers data-round-for="' + esc(j.id) + '">' +
-        '<button class="btn" data-addround="' + esc(j.id) + '">Add round</button>' +
+        '<button class="btn sm" data-addround="' + esc(j.id) + '">Add round</button>' +
       "</div></div>";
   }
 
-  function render() {
-    reconcile();
-    $("#stamp").textContent = "snapshot " + (DB.updated_at || "?").replace("T", " ");
-    const jobs = DB.jobs || [];
-    const count = k => jobs.filter(j => TABS.find(t => t.key === k).statuses.includes(effStatus(j))).length;
-
-    const q = getQ();
-    const bar = $("#syncbar");
-    bar.className = "syncbar" + (q.length ? " show" : "");
-    if (q.length) { $("#synccount").textContent = q.length + " decision" + (q.length > 1 ? "s" : "") + " queued"; $("#synctext").value = syncText(); }
-
-    const answeredQ = {};
-    getQ().forEach(d => { if (d.kind === "answer") answeredQ[d.id] = true; });
-    const qs = (DB.daily_questions || []).filter(x => x.answer == null && !answeredQ[x.id]);
-    $("#qwrap").innerHTML = qs.length
-      ? '<div class="qpanel"><h3>Questions for you (' + qs.length + ")</h3>" + qs.map(x =>
-          '<div class="q"><p>' + esc(x.question) + '</p><input type="text" data-qinput="' + esc(x.id) + '" placeholder="answer…"><button class="btn" data-qsave="' + esc(x.id) + '">Save</button></div>').join("") + "</div>"
-      : "";
-
-    $("#tabs").innerHTML = TABS.map(t =>
-      '<button class="tab ' + (t.hot ? "hot" : "") + '" role="tab" aria-selected="' + (t.key === activeTab) + '" data-tab="' + t.key + '">' + t.label + '<span class="cnt">' + count(t.key) + "</span></button>").join("");
-
-    const tab = TABS.find(t => t.key === activeTab);
-    const list = jobs.filter(j => tab.statuses.includes(effStatus(j)))
-      .sort((a, b) => (b.fit_score || 0) - (a.fit_score || 0));
-    $("#board").innerHTML = list.length ? list.map(rowHTML).join("") :
-      '<div class="empty">' + (activeTab === "decide" ? "Queue clear — next research run will restock" : "Nothing here yet") + "</div>";
+  /* ---------- job card ---------- */
+  function compBrief(j) {
+    if (j.salary_posted && j.salary_posted !== "not listed") return '<span class="comp-brief">' + esc(j.salary_posted) + "</span>";
+    if (j.ask_range) return '<span class="comp-brief"><span class="u">ask</span> ' + esc(j.ask_range) + "</span>";
+    return '<span class="comp-brief u">comp unlisted</span>';
   }
+  function rowHTML(j) {
+    const st = effStatus(j);
+    const queued = !!queuedFor(j.id);
+    const needs = st === "new" || st === "drafts_ready";
+    const hue = STATUS_HUE[st] || "var(--flight)";
+    const ls = j.legit_score;
+    const inFlightOrLater = st !== "new";
+    const docsChip = j.documents_path ? '<span class="chip docs-ready">docs ready</span>'
+      : (inFlightOrLater && st !== "passed" && st !== "expired" ? '<span class="chip docs-pending">drafting…</span>' : "");
+    const ivCount = (j.interviews || []).length;
+    const ivChip = ivCount ? '<span class="chip iv">' + ivCount + " round" + (ivCount > 1 ? "s" : "") + "</span>" : "";
+    const chips = [
+      j.type ? '<span class="chip type">' + esc(j.type) + "</span>" : "",
+      j.arrangement ? '<span class="chip">' + esc(j.arrangement) + "</span>" : "",
+      j.location ? '<span class="chip">' + esc(j.location) + "</span>" : "",
+      legitBadge(ls), coHistoryChip(j), docsChip, ivChip,
+      queued ? '<span class="chip queued">queued — hit Sync</span>' : ""
+    ].join("");
 
-  function doCopy(txt) {
-    const ta = $("#synctext");
-    ta.value = txt; ta.classList.add("show"); ta.focus(); ta.select();
-    let ok = false;
-    try { ok = document.execCommand("copy"); } catch (e) {}
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(txt).then(
-        () => banner("Copied to clipboard — paste into the chat.", "info"),
-        () => banner(ok ? "Copied to clipboard — paste into the chat." : "Auto-copy blocked — the text below is selected, press Ctrl/Cmd+C.", "info"));
+    const openBtn = j.url ? '<a class="btn subtle sm" href="' + esc(j.url) + '" target="_blank" rel="noopener">Open posting ↗</a>' : "";
+    const talkBtn = '<button class="btn subtle sm" data-act="talk" data-id="' + esc(j.id) + '" title="Copy full context to paste into a new chat">Talk about this</button>';
+    const askBtn = '<button class="btn chat sm" data-act="ask" data-id="' + esc(j.id) + '">↗ Ask about this role</button>';
+    const markApplied = (st !== "applied" && st !== "interviewing" && st !== "offer")
+      ? '<button class="btn subtle sm" data-act="markapplied" data-id="' + esc(j.id) + '" title="I already applied to this myself">Mark applied</button>' : "";
+
+    let acts;
+    if (st === "new") {
+      acts = '<button class="btn go" data-act="interested" data-id="' + esc(j.id) + '">Interested — draft it</button>' +
+        '<button class="btn danger ghost" data-act="passform" data-id="' + esc(j.id) + '">Pass</button>' +
+        askBtn + '<span class="grow"></span>' + openBtn + talkBtn;
+    } else if (st === "drafts_ready") {
+      acts = '<button class="btn primary" data-act="talk" data-id="' + esc(j.id) + '">Review &amp; approve in chat</button>' +
+        askBtn + '<span class="grow"></span>' + openBtn + markApplied;
     } else {
-      banner(ok ? "Copied to clipboard — paste into the chat." : "Auto-copy blocked — the text below is selected, press Ctrl/Cmd+C.", "info");
+      acts = askBtn + talkBtn + '<span class="grow"></span>' + openBtn + markApplied;
     }
+    const stateNote = st === "interested" ? '<div class="notes-line">Drafting your tailored resume &amp; cover letter — happens on the next Sync.</div>'
+      : st === "approved_to_submit" ? '<div class="notes-line">Approved — submission happens in chat with your go-ahead.</div>' : "";
+
+    const notes = (j.notes || []).map(n => esc(n.note)).join(" · ");
+    const showIv = st !== "new" && st !== "passed" && st !== "skipped" && st !== "expired";
+    const ivMod = showIv ? interviewsModule(j) : "";
+    const detail =
+      '<div class="detail">' +
+        (j.jd_summary ? '<p class="jd">' + esc(j.jd_summary) + "</p>" : "") +
+        compModule(j) +
+        (DOC_FIRST.has(st) ? docsModule(j, st) + ivMod : ivMod + docsModule(j, st)) +
+        reasoningModule(j) +
+        '<div class="acts">' + acts + "</div>" + stateNote +
+        '<div class="passform" data-passform="' + esc(j.id) + '">' +
+          ["Comp too low", "Role mismatch", "Company", "Location", "Timing"].map(r => '<button class="chipbtn" data-pass="' + esc(j.id) + '" data-reason="' + r + '">' + r + "</button>").join("") +
+          '<input type="text" placeholder="other reason (helps me learn)" data-passinput="' + esc(j.id) + '">' +
+          '<button class="chipbtn" data-passcustom="' + esc(j.id) + '">Pass with note</button>' +
+        "</div>" +
+        '<div class="notebox"><textarea placeholder="Add a note, paste a recruiter email or transcript — Claude reads these at check-in" data-noteinput="' + esc(j.id) + '"></textarea><button class="btn sm" data-addnote="' + esc(j.id) + '">Add note</button></div>' +
+        (notes ? '<div class="notes-line">Notes: ' + notes + "</div>" : "") +
+        '<div class="notes-line faded">Context files → JobSearch/context/' + esc(j.id) + "/ · Found " + esc((j.date_found || "").slice(0, 10)) + (j.source ? " · " + esc(j.source) : "") + "</div>" +
+      "</div>";
+
+    return '<article class="card ' + (needs ? "needs" : "") + (openRows.has(j.id) ? " open" : "") + '" style="--stage-hue:' + hue + '" data-row="' + esc(j.id) + '">' +
+      '<div class="head-row" data-toggle="' + esc(j.id) + '" tabindex="0" role="button" aria-expanded="' + openRows.has(j.id) + '">' +
+        "<div>" + meter(j.fit_score || 0) + "</div>" +
+        '<div class="who"><div class="title">' + esc(j.title) + '</div><div class="co">' + esc(j.company) + '</div><div class="chips">' + chips + "</div></div>" +
+        '<div class="status-cell"><span class="pill" style="--stage-hue:' + hue + '"><span class="d"></span>' + esc(STATUS_LABEL[st] || st) + "</span>" + compBrief(j) + "</div>" +
+      "</div>" + detail + "</article>";
   }
 
-  async function syncNow(btn) {
-    const q = getQ();
-    if (!q.length) return;
-    btn.disabled = true; btn.textContent = "Syncing…"; banner("Uploading decisions…", "info");
-    try {
-      const payload = JSON.stringify({ created_at: new Date().toISOString(), decisions: q });
-      const r = await window.cowork.callMcpTool(DRIVE_CREATE, {
-        title: "jobsearch-sync-queue-" + Date.now() + ".json",
-        textContent: payload, contentMimeType: "text/plain", disableConversionToGoogleType: true
+  /* ---------- momentum nudges ---------- */
+  function momentumItems() {
+    const out = [];
+    (DB.jobs || []).forEach(j => {
+      const st = effStatus(j);
+      // upcoming interviews
+      (j.interviews || []).forEach(iv => {
+        const du = daysUntil(iv.date);
+        if (du != null && du >= 0 && du <= 5) out.push({ id: j.id, tab: "iv",
+          text: '<span class="clock">◷</span> <b>' + esc(iv.round || "Interview") + "</b> at " + esc(j.company) + " · " + (du === 0 ? "today" : du === 1 ? "tomorrow" : "in " + du + "d") });
       });
-      if (r && r.isError) throw new Error((r.content && r.content[0] && r.content[0].text) || "Drive write failed");
-      try { window.cowork.runScheduledTask("job-board-sync"); } catch (e) {}
-      banner("Synced — decisions uploaded and the apply task started. Reload the board in ~1 minute (queue clears once applied).", "info");
-    } catch (e) {
-      banner("Sync now failed (" + esc(e.message) + ") — use Copy for chat instead.", "err");
+      // stale applications
+      if (st === "applied") {
+        const du = daysUntil((j.date_applied || j.status_changed_at || "").slice(0, 10));
+        if (du != null && du <= -10) out.push({ id: j.id, tab: "applied",
+          text: '<span class="clock">◷</span> <b>' + esc(j.company) + "</b> quiet " + Math.abs(du) + "d — nudge?" });
+      }
+      // drafts waiting on you
+      if (st === "drafts_ready") out.push({ id: j.id, tab: "needs", text: '<b>Draft ready</b> · ' + esc(j.company) + " — review" });
+    });
+    return out.slice(0, 6);
+  }
+
+  /* ---------- prompt handoff ---------- */
+  function ctxBlock(j) {
+    const L = [];
+    L.push("Role: " + j.title + " @ " + j.company + (j.location ? " (" + j.location + ")" : ""));
+    if (j.jd_summary) L.push("What it is: " + j.jd_summary);
+    if ((j.fit_reasons || []).length) L.push("Why I fit: " + j.fit_reasons.join("; "));
+    if ((j.gaps || []).length) L.push("My gaps: " + j.gaps.join("; "));
+    const comp = [j.salary_posted && "posted " + j.salary_posted, j.market_range && "market " + j.market_range, j.est_company_pay && "likely " + j.est_company_pay, j.ask_range && "my ask " + j.ask_range].filter(Boolean);
+    if (comp.length) L.push("Comp: " + comp.join(" | "));
+    return L.join("\n");
+  }
+  const CANON = "For full, current context read JobSearch/data/jobs.json (job id: {ID}) and my Profile/ folder (master-profile.md, preferences.md). Snapshot below in case you're not in that project folder:";
+  function promptFor(kind, j, iv) {
+    const canon = CANON.replace("{ID}", j.id);
+    if (kind === "ask") {
+      return "I'm working through my job search. I want to talk about this role.\n\n" + canon + "\n\n" + ctxBlock(j) +
+        "\n\nMy question: [type your question here — e.g. \"is the comp competitive?\", \"what should I dig into before applying?\", \"how does this compare to my other options?\"]\n\nGive me your honest read first, then answer.";
     }
-    btn.disabled = false; btn.textContent = "Sync now";
+    if (kind === "negotiate") {
+      return "Help me build a compensation & negotiation strategy for this role.\n\n" + canon + "\n\n" + ctxBlock(j) +
+        "\n\nDo this:\n1. Assess whether the posted/likely comp is fair for my background and market.\n2. Recommend a target number and a walk-away floor, with reasoning.\n3. Give me exact scripts for: stating my ask, responding to a lowball, and countering an offer.\n4. Flag non-salary levers worth negotiating (equity, sign-on, level, remote, start date).";
+    }
+    if (kind === "strategy") {
+      const r = iv ? (iv.round || "the interview") : "the interview process";
+      return "Build me an interview strategy for " + r + " at " + j.company + ".\n\n" + canon + "\n\n" + ctxBlock(j) +
+        (iv ? "\nRound: " + (iv.round || "") + (iv.format ? " (" + iv.format + ")" : "") + (iv.date ? " on " + iv.date : "") + (iv.interviewers ? ", with " + iv.interviewers : "") : "") +
+        "\n\nDo this:\n1. What this company/round most likely evaluates, and how to signal it.\n2. My 2–3 strongest stories to lead with (mapped to their needs), and gaps to preempt.\n3. Sharp questions I should ask them.\n4. A 30-minute prep checklist for the night before.";
+    }
+    if (kind === "mock") {
+      const r = iv ? (iv.round || "interview") : "interview";
+      return "Run a realistic mock interview. You are my interviewer for the " + r + (iv && iv.format ? " (" + iv.format + ")" : "") + " at " + j.company + " for the " + j.title + " role.\n\n" + canon + "\n\n" + ctxBlock(j) +
+        "\n\nRules:\n- Stay fully in character as the interviewer. Ask ONE question at a time and wait for my answer.\n- After each answer, ask a natural follow-up or probe before moving on.\n- Keep it realistic to this company/level; mix behavioral and role-specific questions.\n- At the very end (when I say \"done\"), drop character and give me candid feedback: what landed, what didn't, and 3 concrete fixes.\n\nStart now with a brief intro and your first question.";
+    }
+    return "";
   }
-
-  function trigger(taskId, btn, okMsg) {
-    btn.disabled = true;
-    try { window.cowork.runScheduledTask(taskId); banner(okMsg, "info"); }
-    catch (e) { banner("Couldn't trigger the task: " + esc(e.message) + " — open the Claude app and try again, or say “job check-in” in chat.", "err"); }
-    setTimeout(() => { btn.disabled = false; }, 8000);
+  const SHEET_META = {
+    ask: { kind: "Ask · live in chat", title: "Ask about this role", desc: "Copy this into Claude to talk the role through with full context — the comp, the fit, whether it's worth your time." },
+    negotiate: { kind: "Comp · live in chat", title: "Negotiation brief", desc: "Get a target number, a floor, and word-for-word scripts for the comp conversation." },
+    strategy: { kind: "Prep · live in chat", title: "Interview strategy", desc: "A tailored game plan: what they evaluate, your strongest stories, and questions to ask." },
+    mock: { kind: "Mock · live in chat", title: "Live mock interview", desc: "Claude plays the interviewer — one question at a time, follow-ups, then candid feedback when you say “done.”" }
+  };
+  function openSheet(kind, j, iv) {
+    const meta = SHEET_META[kind];
+    $("#sheetKind").textContent = meta.kind;
+    $("#sheetTitle").textContent = meta.title + " · " + j.company;
+    $("#sheetDesc").textContent = meta.desc;
+    $("#sheetText").value = promptFor(kind, j, iv);
+    $("#sheetSteps").innerHTML = "<b>How to use it</b><ol><li>Edit the prompt if you like.</li><li>Hit <b>Copy &amp; open Claude</b>, then paste into a Claude chat (new message or new chat).</li><li>Claude reads your live files for anything deeper — nothing to save manually.</li></ol>";
+    $("#scrim").classList.add("show"); $("#sheet").classList.add("show");
+    const ta = $("#sheetText"); ta.focus(); try { ta.setSelectionRange(0, 0); } catch (e) {} ta.scrollTop = 0;
   }
-
-  function newInterviewId() { return "int-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7); }
+  function closeSheet() { $("#scrim").classList.remove("show"); $("#sheet").classList.remove("show"); }
 
   function talkContext(j) {
     const lines = [];
     lines.push("Let's talk about this job/application: " + j.title + " @ " + j.company);
     lines.push("Status: " + (STATUS_LABEL[effStatus(j)] || effStatus(j)));
+    lines.push("\n" + CANON.replace("{ID}", j.id));
     if (j.jd_summary) lines.push("\nJD summary: " + j.jd_summary);
     if (j.salary_posted || j.market_range || j.ask_range) lines.push("\nComp — posted: " + (j.salary_posted || "—") + " | market: " + (j.market_range || "—") + " | ask for: " + (j.ask_range || "—"));
     if ((j.fit_reasons || []).length) lines.push("\nWhy I fit:\n- " + j.fit_reasons.join("\n- "));
@@ -512,43 +881,175 @@
     return lines.join("\n");
   }
 
+  function doCopy(txt, quiet) {
+    const ta = $("#synctext");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        () => { if (!quiet) banner("Copied to clipboard — paste into a Claude chat.", "info"); },
+        () => fallbackCopy(txt));
+    } else fallbackCopy(txt);
+  }
+  function fallbackCopy(txt) {
+    const ta = $("#synctext"); ta.value = txt; ta.classList.add("show"); ta.focus(); ta.select();
+    let ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+    banner(ok ? "Copied to clipboard — paste into a Claude chat." : "Auto-copy blocked — the text below is selected, press Ctrl/Cmd+C.", "info");
+  }
+
+  async function syncNow(btn) {
+    const q = getQ(); if (!q.length) return;
+    btn.disabled = true; btn.textContent = "Syncing…"; banner("Uploading decisions…", "info");
+    try {
+      const payload = JSON.stringify({ created_at: new Date().toISOString(), decisions: q });
+      const r = await window.cowork.callMcpTool(DRIVE_CREATE, {
+        title: "jobsearch-sync-queue-" + Date.now() + ".json",
+        textContent: payload, contentMimeType: "text/plain", disableConversionToGoogleType: true
+      });
+      if (r && r.isError) throw new Error((r.content && r.content[0] && r.content[0].text) || "Drive write failed");
+      try { window.cowork.runScheduledTask("job-board-sync"); } catch (e) {}
+      banner("Synced — decisions uploaded and the apply task started. Reload the board in ~1 minute.", "info");
+    } catch (e) {
+      banner("Sync now failed (" + esc(e.message) + ") — use Copy for chat instead.", "err");
+    }
+    btn.disabled = false; btn.textContent = "Sync now";
+  }
+  function trigger(taskId, btn, okMsg) {
+    btn.disabled = true;
+    try { window.cowork.runScheduledTask(taskId); banner(okMsg, "info"); }
+    catch (e) { banner("Couldn't trigger the task: " + esc(e.message) + " — open the Claude app and try again, or say “job check-in” in chat.", "err"); }
+    setTimeout(() => { btn.disabled = false; }, 8000);
+  }
+  function newInterviewId() { return "int-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7); }
+
+  /* ---------- render ---------- */
+  function render() {
+    reconcile();
+    $("#stamp").textContent = "snapshot " + (DB.updated_at || "?").replace("T", " ").slice(0, 16);
+    const jobs = DB.jobs || [];
+    const count = k => jobs.filter(j => STAGES.find(t => t.key === k).statuses.includes(effStatus(j))).length;
+
+    // queue bar
+    const q = getQ();
+    const bar = $("#syncbar");
+    bar.className = "syncbar" + (q.length ? " show" : "");
+    if (q.length) { $("#synccount").textContent = q.length + " decision" + (q.length > 1 ? "s" : "") + " queued"; $("#synctext").value = syncText(); }
+
+    // daily questions
+    const answeredQ = {};
+    getQ().forEach(d => { if (d.kind === "answer") answeredQ[d.id] = true; });
+    const qs = (DB.daily_questions || []).filter(x => x.answer == null && !answeredQ[x.id]);
+    $("#qwrap").innerHTML = qs.length
+      ? '<div class="qpanel"><h3>' + qs.length + ' question' + (qs.length > 1 ? "s" : "") + ' for you</h3>' + qs.map(x =>
+          '<div class="q"><p>' + esc(x.question) + '</p><input type="text" data-qinput="' + esc(x.id) + '" placeholder="answer…"><button class="btn sm" data-qsave="' + esc(x.id) + '">Save</button></div>').join("") + "</div>"
+      : "";
+
+    // pipeline
+    $("#pipe").innerHTML = STAGES.map(t =>
+      '<button class="stage ' + (t.attention ? "attention" : "") + '" role="tab" aria-selected="' + (t.key === activeTab) + '" data-tab="' + t.key + '" style="--dot:' + (t.hue || "var(--accent)") + '">' +
+        '<span class="dot"></span><span class="nm">' + t.label + '</span><span class="ct">' + count(t.key) + "</span></button>").join("");
+
+    // momentum
+    const mom = momentumItems();
+    $("#momentum").innerHTML = mom.map(m => '<button class="nudge" data-nudge="' + esc(m.id) + '" data-nudge-tab="' + m.tab + '">' + m.text + "</button>").join("");
+
+    // list
+    const tab = STAGES.find(t => t.key === activeTab) || STAGES[0];
+    const list = jobs.filter(j => tab.statuses.includes(effStatus(j)))
+      .sort((a, b) => {
+        // interviews sort by soonest upcoming round, else by fit
+        if (tab.key === "iv") {
+          const na = Math.min.apply(null, [999].concat((a.interviews || []).map(i => { const d = daysUntil(i.date); return d != null && d >= 0 ? d : 999; })));
+          const nb = Math.min.apply(null, [999].concat((b.interviews || []).map(i => { const d = daysUntil(i.date); return d != null && d >= 0 ? d : 999; })));
+          if (na !== nb) return na - nb;
+        }
+        return (b.fit_score || 0) - (a.fit_score || 0);
+      });
+
+    let head = "";
+    if (tab.key === "needs") head = '<div class="section-lead"><h2>Needs you</h2><span class="hint">' + (list.length ? "decide or review — everything else is quiet until it needs you" : "") + "</span></div>";
+    const emptyMsg = {
+      needs: { big: "All clear.", small: "Nothing needs a decision right now. The next research run will restock." },
+      flight: { big: "Nothing in flight.", small: "Roles you mark interested land here while docs are drafted." },
+      applied: { big: "No live applications.", small: "Submitted roles show up here with follow-up nudges." },
+      iv: { big: "No interviews scheduled.", small: "Add a round from any applied role to start prep." },
+      offer: { big: "No offers yet.", small: "They're coming." },
+      archive: { big: "Archive is empty.", small: "Passed, expired, and closed roles collect here." }
+    }[tab.key] || { big: "Nothing here yet", small: "" };
+
+    $("#board").innerHTML = head + (list.length ? list.map(rowHTML).join("")
+      : '<div class="empty"><div class="big">' + emptyMsg.big + '</div><div class="small">' + emptyMsg.small + "</div></div>");
+
+    $("#foot").textContent = "Signal is a snapshot of jobs.json embedded at build time. “Refresh” rebuilds it; “Find new roles” hunts for postings (both need the Claude app open — reload afterward). Marking a role interested auto-drafts a tailored resume + cover letter on the next Sync. Practice runs mock interviews right here; the ↗ buttons hand a ready-to-run prompt to a live Claude chat. Nothing is ever submitted without your explicit approval.";
+  }
+
+  /* ---------- drill helpers (mutate in place, avoid full rerender where possible) ---------- */
+  function rerenderJob(jobId) { render(); } // keep it simple + consistent
+  function jobById(id) { return (DB.jobs || []).find(j => j.id === id); }
+  function ivById(j, ivId) { return (j.interviews || []).find(i => i.id === ivId); }
+  function saveDrillAnswer(key) {
+    const ta = $('[data-drill-answer="' + CSS.escape(key) + '"]');
+    if (ta && mockState[key]) mockState[key].answer = ta.value;
+  }
+
+  /* ---------- events ---------- */
   document.addEventListener("click", function (e) {
-    const t = e.target.closest("[data-tab],[data-toggle],[data-act],[data-pass],[data-passcustom],[data-qsave],[data-addnote],[data-copypath],[data-addround],[data-ivaddnote],#runNow,#refreshBoard,#copySync,#clearSync,#syncNow");
+    const t = e.target.closest("[data-tab],[data-toggle],[data-act],[data-pass],[data-passcustom],[data-qsave],[data-addnote],[data-copypath],[data-addround],[data-ivaddnote],[data-nudge],[data-drill-open],[data-drill-close],[data-drill-reveal],[data-drill-next],[data-drill-save],#runNow,#refreshBoard,#copySync,#clearSync,#syncNow,#themeBtn,#sheetClose,#sheetCopy,#scrim");
     if (!t) return;
+
+    if (t.id === "themeBtn") { toggleTheme(); return; }
+    if (t.id === "scrim" || t.id === "sheetClose") { closeSheet(); return; }
+    if (t.id === "sheetCopy") { doCopy($("#sheetText").value); return; }
+
     if (t.dataset.tab) { activeTab = t.dataset.tab; localStorage.setItem("jd-tab", activeTab); render(); return; }
+    if (t.dataset.nudge) { activeTab = t.dataset.nudgeTab; localStorage.setItem("jd-tab", activeTab); openRows.add(t.dataset.nudge); render();
+      const el = $('[data-row="' + CSS.escape(t.dataset.nudge) + '"]'); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
     if (t.dataset.toggle) { const id = t.dataset.toggle; openRows.has(id) ? openRows.delete(id) : openRows.add(id); render(); return; }
+
+    // drill (mock practice)
+    if (t.dataset.drillOpen) { mockState[t.dataset.drillOpen] = Object.assign({ i: 0, revealed: false }, mockState[t.dataset.drillOpen], { open: true }); render(); return; }
+    if (t.dataset.drillClose) { saveDrillAnswer(t.dataset.drillClose); if (mockState[t.dataset.drillClose]) mockState[t.dataset.drillClose].open = false; render(); return; }
+    if (t.dataset.drillReveal) { saveDrillAnswer(t.dataset.drillReveal); mockState[t.dataset.drillReveal].revealed = true; render(); return; }
+    if (t.dataset.drillNext) { const k = t.dataset.drillNext; saveDrillAnswer(k); mockState[k].i = (mockState[k].i || 0) + 1; mockState[k].revealed = false; mockState[k].answer = ""; render(); return; }
+    if (t.dataset.drillSave) {
+      const k = t.dataset.drillSave; saveDrillAnswer(k);
+      const [jobId, ivId] = k.split("::"); const j = jobById(jobId); const iv = j && ivById(j, ivId);
+      const bank = j && iv ? mockQuestions(j, iv) : []; const st = mockState[k] || {};
+      const qtext = (bank[st.i] || {}).q || "";
+      if (!st.answer || !st.answer.trim()) { banner("Write an answer first, then save it to notes.", "err"); return; }
+      pushQ({ kind: "interview_note", id: jobId, interview_id: ivId, note: "Mock Q: " + qtext + " — My answer: " + st.answer.trim(), at: Date.now() });
+      banner("Answer saved to round notes — it'll sync with your next batch.", "info"); return;
+    }
+
+    // AI handoffs
+    if (t.dataset.act === "ask" || t.dataset.act === "negotiate" || t.dataset.act === "strategy" || t.dataset.act === "mock") {
+      const j = jobById(t.dataset.id); if (!j) return;
+      const iv = t.dataset.iv ? ivById(j, t.dataset.iv) : null;
+      openSheet(t.dataset.act, j, iv); return;
+    }
+
     if (t.dataset.act === "interested") { pushQ({ kind: "job", id: t.dataset.id, status: "interested", at: Date.now() }); return; }
     if (t.dataset.act === "markapplied") { pushQ({ kind: "job", id: t.dataset.id, status: "applied", reason: "Marked applied from board (applied manually)", at: Date.now() }); return; }
-    if (t.dataset.act === "talk") {
-      const j = (DB.jobs || []).find(x => x.id === t.dataset.id);
-      if (j) doCopy(talkContext(j));
-      return;
-    }
+    if (t.dataset.act === "talk") { const j = jobById(t.dataset.id); if (j) doCopy(talkContext(j)); return; }
     if (t.dataset.act === "draftnow") { trigger("job-board-sync", t, "Sync triggered — it will draft this (and anything else pending) in a few minutes, then reload the board."); return; }
     if (t.dataset.copypath) { doCopy(t.dataset.copypath); return; }
+
     if (t.dataset.addnote) {
       const inp = $('[data-noteinput="' + CSS.escape(t.dataset.addnote) + '"]');
       if (!inp || !inp.value.trim()) return;
-      pushQ({ kind: "note", id: t.dataset.addnote, note: inp.value.trim(), at: Date.now() });
-      inp.value = ""; return;
+      pushQ({ kind: "note", id: t.dataset.addnote, note: inp.value.trim(), at: Date.now() }); inp.value = ""; return;
     }
     if (t.dataset.addround) {
       const jobId = t.dataset.addround;
-      const round = ($('[data-round-round][data-round-for="' + CSS.escape(jobId) + '"]') || {}).value || "";
-      const date = ($('[data-round-date][data-round-for="' + CSS.escape(jobId) + '"]') || {}).value || "";
-      const format = ($('[data-round-format][data-round-for="' + CSS.escape(jobId) + '"]') || {}).value || "";
-      const interviewers = ($('[data-round-interviewers][data-round-for="' + CSS.escape(jobId) + '"]') || {}).value || "";
+      const g = (sel) => ($('[' + sel + '][data-round-for="' + CSS.escape(jobId) + '"]') || {}).value || "";
+      const round = g("data-round-round"), date = g("data-round-date"), format = g("data-round-format"), interviewers = g("data-round-interviewers");
       if (!round.trim()) { banner("Give the round a name (e.g. Phone Screen) before adding it.", "err"); return; }
       pushQ({ kind: "interview_add", id: jobId, interview_id: newInterviewId(), round: round.trim(), date: date.trim(), format: format.trim(), interviewers: interviewers.trim(), at: Date.now() });
       return;
     }
     if (t.dataset.ivaddnote) {
-      const key = t.dataset.ivaddnote;
-      const inp = $('[data-ivnoteinput="' + CSS.escape(key) + '"]');
+      const key = t.dataset.ivaddnote; const inp = $('[data-ivnoteinput="' + CSS.escape(key) + '"]');
       if (!inp || !inp.value.trim()) return;
       const [jobId, interviewId] = key.split("::");
-      pushQ({ kind: "interview_note", id: jobId, interview_id: interviewId, note: inp.value.trim(), at: Date.now() });
-      inp.value = ""; return;
+      pushQ({ kind: "interview_note", id: jobId, interview_id: interviewId, note: inp.value.trim(), at: Date.now() }); inp.value = ""; return;
     }
     if (t.dataset.act === "passform") { const f = $('[data-passform="' + CSS.escape(t.dataset.id) + '"]'); if (f) f.classList.toggle("show"); return; }
     if (t.dataset.pass) { pushQ({ kind: "job", id: t.dataset.pass, status: "passed", reason: t.dataset.reason, at: Date.now() }); return; }
@@ -564,10 +1065,12 @@
     if (t.id === "copySync") { doCopy("Job board sync — apply these decisions:\n" + syncText()); return; }
     if (t.id === "syncNow") { syncNow(t); return; }
     if (t.id === "clearSync") { setQ([]); render(); return; }
-    if (t.id === "runNow") { trigger("job-search-morning", t, "Research run triggered — takes a few minutes; then hit “Refresh board data” and reload."); return; }
+    if (t.id === "runNow") { trigger("job-search-morning", t, "Research run triggered — takes a few minutes; then hit “Refresh” and reload."); return; }
     if (t.id === "refreshBoard") { trigger("job-board-refresh", t, "Board rebuild triggered — reload this artifact in ~1 minute."); return; }
   });
+
   document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { closeSheet(); return; }
     if ((e.key === "Enter" || e.key === " ") && e.target.dataset && e.target.dataset.toggle) { e.preventDefault(); e.target.click(); }
   });
 
