@@ -22,7 +22,8 @@ Job Search Board/
 │   ├── scripts/
 │   │   ├── update_job.py              ← the only way jobs.json gets written to
 │   │   └── build_board.py             ← rebuilds the dashboard from jobs.json
-│   ├── artifact/template.html         ← the dashboard UI (Cowork artifact)
+│   ├── artifact/template.html         ← the dashboard UI (Cowork artifact) — unbuilt template
+│   ├── artifact/board.sample.html     ← ready-to-open PREVIEW, pre-built with sample data
 │   ├── data/jobs.example.json         ← schema reference — NOT real data
 │   └── context/README.md              ← drop-folder for per-job context files
 ├── Profile/
@@ -42,6 +43,18 @@ Job Search Board/
 ---
 
 ## Setup Q&A (for the AI doing the install)
+
+**Q: Can I see what the dashboard looks like before installing anything?**
+A: Yes — `JobSearch/artifact/board.sample.html` is a fully pre-built version of the
+dashboard with two fictional jobs already in it (same data as `jobs.example.json`). Open it
+directly in a browser to see the UI (tabs, fit meter, fit/gap/legitimacy panels, document
+previews, interview tracking). Note it's a static file at that point — the "Sync now,"
+"Refresh board data," and "Run research now" buttons need `window.cowork` (only present
+inside an actual Cowork artifact) and the scheduled tasks to exist, so those won't do
+anything when opened as a plain file. `template.html` (the unbuilt version with the
+`__JOBBOARD_DATA__` placeholder still in it) is what actually gets published as the
+artifact — see the artifact Q&A below for how to build and publish the real, empty-start
+version once installed.
 
 **Q: What does a user need before I start?**
 A: A Cowork session with a connected folder for this project (any name — the guide below
