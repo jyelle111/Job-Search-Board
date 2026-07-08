@@ -1,0 +1,93 @@
+{
+  "_comment": "Schema reference only — every value below is fictional. Real data lives in jobs.json (gitignored). Copy this file's structure, not its content, to start jobs.json: {\"jobs\": [], \"daily_questions\": [], \"activity_log\": [], \"updated_at\": null}",
+  "updated_at": "2026-07-07T09:12:00",
+  "jobs": [
+    {
+      "id": "2026-07-06-example-corp-senior-ai-engineer",
+      "title": "Senior AI Engineer, Agent Platform",
+      "company": "Example Corp",
+      "location": "Remote (US)",
+      "arrangement": "remote",
+      "type": "full-time",
+      "source": "boards.greenhouse.io",
+      "url": "https://boards.greenhouse.io/examplecorp/jobs/0000000",
+      "salary_posted": "$160,000 - $190,000",
+      "market_range": "$150k-$195k base for this role/region",
+      "est_company_pay": "Series B, likely mid-to-upper band given recent funding",
+      "ask_range": "$175,000 - $185,000",
+      "fit_score": 82,
+      "fit_reasons": [
+        "Direct experience building production agentic/LLM pipelines",
+        "Track record shipping systems solo end-to-end, matching this team's small-team structure"
+      ],
+      "gaps": [
+        "No prior experience in this company's specific industry vertical"
+      ],
+      "legit_score": 88,
+      "legit_evidence": [
+        "Live on company's own Greenhouse board",
+        "Named hiring manager in the JD",
+        "Company has recent funding announcement and active engineering blog"
+      ],
+      "legit_flags": [],
+      "jd_summary": "Example Corp is hiring a senior engineer to build and scale their agentic automation platform, focused on production reliability and multi-step tool-use workflows.",
+      "keywords": ["LLM agents", "tool use", "RAG", "production reliability", "Python"],
+      "status": "new",
+      "date_found": "2026-07-06T09:00:00",
+      "notes": [],
+      "documents_path": null,
+      "date_applied": null,
+      "applied_via": null,
+      "apply_fill_status": null,
+      "apply_fill_notes": null,
+      "interviews": []
+    },
+    {
+      "id": "2026-07-05-northwind-staff-pm",
+      "title": "Staff Product Manager, AI Platform",
+      "company": "Northwind Software",
+      "location": "Hybrid — Anytown, ST",
+      "arrangement": "hybrid",
+      "type": "full-time",
+      "source": "jobs.lever.co",
+      "url": "https://jobs.lever.co/northwind/0000000",
+      "salary_posted": "not listed",
+      "market_range": "$170k-$210k base for Staff PM, AI, this region",
+      "est_company_pay": "Established company, likely mid-band",
+      "ask_range": "$185,000 - $195,000",
+      "fit_score": 74,
+      "fit_reasons": [
+        "Strong product strategy + technical fluency crossover",
+        "Enterprise deployment experience matches the JD's stated need"
+      ],
+      "gaps": [
+        "JD emphasizes a specific vertical domain not directly represented in background"
+      ],
+      "legit_score": 70,
+      "legit_evidence": ["On company's own Lever board", "Specific team/reporting line named"],
+      "legit_flags": ["Comp not disclosed"],
+      "jd_summary": "Northwind is hiring a Staff PM to own the roadmap for their internal AI platform used across three product lines.",
+      "keywords": ["product strategy", "AI platform", "stakeholder management", "roadmap"],
+      "status": "interested",
+      "date_found": "2026-07-05T14:00:00",
+      "notes": [{ "at": "2026-07-06T10:00:00", "note": "Recruiter reached out on LinkedIn, seems responsive." }],
+      "documents_path": "Applications/Northwind Software - Staff Product Manager/",
+      "date_applied": null,
+      "applied_via": null,
+      "apply_fill_status": null,
+      "apply_fill_notes": null,
+      "interviews": []
+    }
+  ],
+  "daily_questions": [
+    {
+      "id": "q-example-1",
+      "question": "Example: are you open to roles requiring occasional travel (<10%)?",
+      "answer": null,
+      "answered_at": null
+    }
+  ],
+  "activity_log": [
+    { "at": "2026-07-06T09:05:00", "event": "added 2026-07-06-example-corp-senior-ai-engineer (Example Corp — Senior AI Engineer, Agent Platform)" }
+  ]
+}

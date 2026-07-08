@@ -1,0 +1,24 @@
+# Personal job-search data — never commit real data to this repo.
+JobSearch/data/jobs.json
+JobSearch/data/jobs.backup.json
+JobSearch/artifact/board.html
+
+# Per-job context drop folder (keep the README, ignore everything a user drops in)
+JobSearch/context/*
+!JobSearch/context/README.md
+
+# Tailored application documents (keep the README, ignore real PDFs/folders)
+Applications/*
+!Applications/README.md
+
+# Filled-in personal profile (only the .template.md versions are tracked)
+Profile/master-profile.md
+Profile/preferences.md
+Profile/github-projects.md
+Profile/feedback-log.md
+
+# OS / editor / Python cruft
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
