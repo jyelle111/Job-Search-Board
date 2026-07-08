@@ -6,8 +6,93 @@ tailored resume and cover letter the moment you mark a job "interested," and can
 fill out (but never submit) live application forms for you.
 
 Everything here is a **template** — no one's personal data, job history, or contact
-information is included. The setup guide below is written as Q&A so an AI agent (a fresh
-Claude Cowork session, or another agent) can read this file and do the install itself.
+information is included. You don't configure it by hand: you clone the repo, connect the
+folder in a Claude Cowork session, and paste one prompt — Claude then asks you everything it
+needs and sets the whole thing up. **Jump to [Get started in Claude Cowork](#get-started-in-claude-cowork)
+below.** (The [Setup Q&A](#setup-qa-for-the-ai-doing-the-install) further down is the detailed
+checklist that Claude follows during that install — you don't need to read it yourself.)
+
+---
+
+## Get started in Claude Cowork
+
+Three steps: **clone → connect → paste the prompt**. The whole configuration is interactive —
+Claude asks you for your comp floor, roles, history, schedule, and preferences, then wires up
+the scripts, scheduled tasks, and dashboard for your instance.
+
+### Step 1 — Clone this repo
+
+Clone (or download the ZIP of) this repository into a folder you'll keep. That folder becomes
+your project root, so there's nothing to copy anywhere afterward.
+
+```bash
+git clone https://github.com/jyelle111/Job-Search-Board.git ~/Documents/job-search
+```
+
+### Step 2 — Open a Cowork session and connect that folder
+
+**On claude.ai (web):**
+1. Go to **claude.ai** and sign in.
+2. Open **Cowork** from the left sidebar.
+3. Click **New** to start a session.
+4. **Connect a folder** (the folder / 📎 connect control) and grant access to the folder from
+   Step 1 (e.g. `~/Documents/job-search`).
+5. Click into the message box.
+
+**In the Claude desktop app (Mac / Windows):**
+1. Open the **Claude** desktop app and sign in.
+2. Open the **Cowork** tab.
+3. Start a **New** session.
+4. **Connect a folder** and grant access to the folder from Step 1 when prompted.
+5. Click into the message box.
+
+> If your Cowork build doesn't show a connect-folder button, skip step 4 — the prompt below
+> tells Claude to connect the folder itself.
+
+### Step 3 — Paste this prompt and send it
+
+Copy the block below **verbatim** into the Cowork message box and send. Claude does the rest,
+pausing to ask you each question it needs.
+
+```text
+Install the Job Search Board system for me in this connected folder.
+
+Read README.md here — especially the "Setup Q&A (for the AI doing the install)" section —
+and treat it as your install checklist. If this folder isn't connected as a Cowork
+directory yet, connect it first.
+
+Do the whole install yourself, and ask me for every piece of information you need instead of
+guessing or inventing placeholders. At minimum, ask me for:
+- my compensation floor, target roles / role families, locations, and remote rules, plus any
+  hard "never apply" rules  → Profile/preferences.md
+- my employment history, skills, education, and standing answers to common application
+  questions (work authorization, notice period, etc.)  → Profile/master-profile.md
+- whether I keep a portfolio or GitHub projects worth citing  → Profile/github-projects.md
+  (optional — skip if not relevant)
+- my timezone and what times the two daily research runs should fire (default 5:00 AM and
+  2:00 PM), and whether to start them enabled or disabled until I've reviewed a test run
+- whether I want live Google Drive sync for board decisions (optional)
+
+Then configure everything end to end: replace the {{PROJECT_ROOT}}, {{SANDBOX_MOUNT}}, and
+{{SANDBOX_MOUNT_OUTPUTS}} placeholders and RESUME_ROOT_HOST, save my filled-in Profile/*.md
+files, register the resume-cover-letter-writer skill, create the four scheduled tasks, and
+build and publish the dashboard artifact.
+
+Finally, do one test morning research run, show me the dashboard, walk me through the
+"Sync now", "Copy for chat", and "Talk about this" buttons, and tell me exactly what you did
+and anything I still need to do myself.
+
+Hard rules, no exceptions: never submit a job application, never invent a fact about me, and
+never resurface a job I've already passed on.
+```
+
+That's it. Claude works through the checklist, confirms each piece as it goes, and hands you a
+live dashboard plus two scheduled research runs. Answer its questions as they come.
+
+> **Want to see the dashboard before installing anything?** Open
+> `JobSearch/artifact/board.sample.html` in any browser — it's a fully built preview with two
+> fictional jobs. The buttons are inert in a plain file; they come alive once the real artifact
+> is published during install.
 
 ---
 
@@ -64,9 +149,11 @@ in the sandbox shell. The `docx` skill (for building resume/cover-letter files) 
 see the Drive Q&A below.
 
 **Q: Where should this project live?**
-A: Ask the user for (or create) a folder they want to use — e.g.
-`~/Documents/job-search`. Connect it with `mcp__cowork__request_cowork_directory`, then copy
-every file from this repo into it, preserving the folder structure above.
+A: The user has cloned this repo into a folder they'll keep (e.g. `~/Documents/job-search`),
+and that cloned folder IS the project root — it already contains the structure above, so
+there's nothing to copy. Just connect it with `mcp__cowork__request_cowork_directory` if it
+isn't connected already. (If instead the user handed you the files loose rather than a clone,
+create/pick a folder, connect it, and copy every file in preserving that structure.)
 
 **Q: The scripts and scheduled-task prompts reference `{{PROJECT_ROOT}}` and
 `{{SANDBOX_MOUNT}}` — what do I do with those?**
@@ -83,7 +170,9 @@ same host path — it's used to build "open this file yourself" links on the das
 
 **Q: What order should I do the install steps in?**
 A:
-1. Connect/create the project folder and copy this repo's contents into it.
+1. Connect the cloned project folder (it already contains this repo's contents — see the
+   "Where should this project live?" Q&A). Only copy files in if the user handed them to you
+   loose instead of as a clone.
 2. Have the user (or ask them to) fill in `Profile/master-profile.template.md` and
    `Profile/preferences.template.md`, saving as `master-profile.md` and `preferences.md`
    (drop the `.template`). Ask them directly for anything you need — comp floor, target

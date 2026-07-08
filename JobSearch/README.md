@@ -1,5 +1,11 @@
 # Job Search System — How It Works
 
+> **Not installed yet?** Don't configure any of this by hand — see **Get started in Claude
+> Cowork** in the [root README](../README.md#get-started-in-claude-cowork): clone the repo,
+> connect the folder in a Cowork session, and paste one prompt that has Claude ask you the
+> setup questions and wire everything below up for you. This page describes how the system
+> behaves *after* that install.
+
 ## Pieces
 - `data/jobs.json` — single source of truth for every job ever seen (all statuses).
   Passed/skipped jobs stay here forever so they never resurface. **Not tracked in git** —
