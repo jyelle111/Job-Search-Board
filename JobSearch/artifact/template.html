@@ -209,7 +209,30 @@
   /* ---------- detail ---------- */
   .detail { border-top: 1px solid var(--line); padding: 16px 17px 17px; display: none; }
   .card.open .detail { display: block; }
-  .jd { color: var(--ink); margin-bottom: 14px; max-width: 74ch; font-size: 13.5px; }
+  .jd { color: var(--ink); margin-bottom: 15px; max-width: 74ch; font-size: 13.5px; }
+
+  /* ---------- in-card section tabs ---------- */
+  .cardtabs { display: flex; gap: 2px; margin: 0 0 15px; border-bottom: 1px solid var(--line);
+    overflow-x: auto; scrollbar-width: none; }
+  .cardtabs::-webkit-scrollbar { display: none; }
+  .cardtab { flex: none; display: inline-flex; align-items: center; gap: 7px; background: none; border: none;
+    padding: 9px 13px 10px; margin-bottom: -1px; font-size: 12.5px; font-weight: 550; color: var(--muted);
+    border-bottom: 2px solid transparent; white-space: nowrap; transition: color .12s, border-color .12s; }
+  .cardtab .k { width: 6px; height: 6px; border-radius: 50%; background: var(--tab-hue, var(--muted)); opacity: .4; transition: opacity .12s; }
+  .cardtab .tct { font-family: var(--mono); font-size: 10px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .cardtab:hover { color: var(--ink); }
+  .cardtab:hover .k { opacity: .75; }
+  .cardtab[aria-selected="true"] { color: var(--ink); font-weight: 640; border-bottom-color: var(--tab-hue, var(--ink)); }
+  .cardtab[aria-selected="true"] .k { opacity: 1; }
+  .cardtab[aria-selected="true"] .tct { color: var(--tab-ink, var(--muted)); }
+  .cardpanel { display: none; }
+  .cardpanel.on { display: block; animation: panelin .16s ease; }
+  @keyframes panelin { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+  .psub { font-size: 11px; font-weight: 640; text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
+    margin: 16px 0 9px; display: flex; align-items: center; gap: 7px; }
+  .psub .k { width: 6px; height: 6px; border-radius: 50%; }
+  .kwrow { display: flex; gap: 6px; flex-wrap: wrap; }
+  .detail-actions { border-top: 1px solid var(--line); margin-top: 17px; padding-top: 14px; }
 
   .module { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); padding: 13px 14px; margin-bottom: 12px; }
   .module > h4 { font-size: 11px; font-weight: 640; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; gap: 7px; }
@@ -317,6 +340,20 @@
   .passform .chipbtn { font-size: 12px; border: 1px solid var(--line-strong); background: var(--surface); border-radius: 999px; padding: 5px 12px; }
   .passform .chipbtn:hover { border-color: var(--danger); color: var(--danger); }
   .passform input { flex: 1 1 200px; }
+  .passform label.chipbtn { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+  .passform label.chipbtn input[type="checkbox"] { margin: 0; }
+
+  /* manual status changer (reopen an archived role, or move any role by hand) */
+  .statusform { display: none; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 11px; padding: 11px 11px 12px;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); }
+  .statusform.show { display: flex; }
+  .statusform .lbl { width: 100%; font-size: 11px; font-weight: 640; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 1px; }
+  .schip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink);
+    border: 1px solid var(--line-strong); background: var(--surface); border-radius: 999px; padding: 5px 12px; transition: border-color .12s, background .12s; }
+  .schip .d { width: 7px; height: 7px; border-radius: 50%; background: var(--schip-hue, var(--muted)); flex: none; }
+  .schip:hover { border-color: var(--schip-hue, var(--ink)); }
+  .schip.cur { border-color: var(--schip-hue, var(--line-strong)); background: color-mix(in srgb, var(--schip-hue) 13%, var(--surface)); font-weight: 650; cursor: default; }
+  .statusform input { flex: 1 1 200px; }
 
   /* addround */
   .addround { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
@@ -450,6 +487,15 @@
   let activeTab = localStorage.getItem("jd-tab") || "needs";
   const openRows = new Set();
   const mockState = {}; // ivKey -> {i, revealed} (survives rerenders)
+  const cardTab = {};   // jobId -> active in-card section tab (survives rerenders)
+  // Which section tab a card opens on, by status: deciding → read the role first, interviewing → prep,
+  // in-flight/applied → docs, else the fit read.
+  function defaultCardTab(st, keys) {
+    if (st === "interviewing" && keys.indexOf("iv") >= 0) return "iv";
+    if (DOC_FIRST.has(st) && keys.indexOf("docs") >= 0) return "docs";
+    if (st === "new" && keys.indexOf("role") >= 0) return "role";
+    return "fit";
+  }
 
   const $ = (s, el) => (el || document).querySelector(s);
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -510,7 +556,7 @@
   }
   function syncText() {
     return getQ().map(d => {
-      if (d.kind === "job") return "mark " + d.id + " as " + d.status + (d.reason ? " (reason: " + d.reason + ")" : "");
+      if (d.kind === "job") return "mark " + d.id + " as " + d.status + (d.reason ? " (reason: " + d.reason + ")" : "") + (d.reapply_invited ? " [reapply_invited: they said to apply to other roles there]" : "");
       if (d.kind === "note") return "note " + d.id + ": " + d.note;
       if (d.kind === "interview_add") return "schedule interview " + d.interview_id + " for " + d.id + ": " + d.round + " on " + d.date + " (" + d.format + (d.interviewers ? ", interviewers: " + d.interviewers : "") + ")";
       if (d.kind === "interview_note") return "interview note " + d.interview_id + " on " + d.id + ": " + d.note;
@@ -535,6 +581,18 @@
     return '<span class="legit ' + cls + '" title="Legitimacy ' + ls + '/100 — 100 = certainly a real posting"><span class="g">' + g + '</span>' + t + ' ' + ls + '</span>';
   }
 
+  /* ---------- role description ---------- */
+  function roleContent(j) {
+    const desc = j.description || j.jd_summary;
+    const body = desc ? '<p class="jd">' + esc(desc) + "</p>"
+      : '<div class="notes-line faded">No description captured for this role yet — the next research run will fill it in.</div>';
+    const kw = (j.keywords || []).length
+      ? '<div class="psub"><span class="k" style="background:var(--new)"></span>Keywords</div>' +
+        '<div class="kwrow">' + j.keywords.map(k => '<span class="chip mono">' + esc(k) + "</span>").join("") + "</div>"
+      : "";
+    return body + kw;
+  }
+
   /* ---------- comp intel ---------- */
   function parseMoney(s) {
     if (!s) return null;
@@ -551,7 +609,7 @@
     return { lo: Math.min.apply(null, nums), hi: Math.max.apply(null, nums) };
   }
   function money(n) { return "$" + Math.round(n / 1000) + "k"; }
-  function compModule(j) {
+  function compContent(j) {
     const posted = parseMoney(j.salary_posted), market = parseMoney(j.market_range), ask = parseMoney(j.ask_range);
     let scale = "";
     const ranges = [posted, market, ask].filter(Boolean);
@@ -566,27 +624,26 @@
         band(market, "market", "market") + band(posted, "posted", "posted") + band(ask, "ask", "your ask") + "</div></div>";
     }
     const row = (label, val, cls) => '<div class="r ' + (cls || "") + '"><b>' + label + '</b><span class="v">' + esc(val || "—") + "</span></div>";
-    return '<div class="module"><h4><span class="k" style="background:var(--offer)"></span>Compensation</h4>' + scale +
+    return scale +
       '<div class="comp-rows">' +
         row("Posted", j.salary_posted) + row("Market range", j.market_range) +
         row("Likely pays", j.est_company_pay) + row("Your ask", j.ask_range, "ask") +
         (j.applied_via ? row("Applied via", j.applied_via) : "") +
         (j.date_applied ? row("Applied on", (j.date_applied || "").slice(0, 10)) : "") +
       '</div>' +
-      '<div class="acts" style="margin-top:11px"><button class="btn chat sm" data-act="negotiate" data-id="' + esc(j.id) + '">↗ Negotiation brief in chat</button></div>' +
-      '</div>';
+      '<div class="acts" style="margin-top:12px"><button class="btn chat sm" data-act="negotiate" data-id="' + esc(j.id) + '">↗ Negotiation brief in chat</button></div>';
   }
 
-  /* ---------- reasoning ---------- */
-  function reasoningModule(j) {
+  /* ---------- reasoning (Fit panel: fit cols + legitimacy sub-section) ---------- */
+  function fitContent(j) {
     const list = (arr, empty) => (arr && arr.length) ? "<ul>" + arr.map(r => "<li>" + esc(r) + "</li>").join("") + "</ul>" : '<ul><li style="color:var(--faint)">' + empty + "</li></ul>";
-    const fit = '<div class="module"><h4><span class="k" style="background:var(--go)"></span>Fit</h4><div class="cols">' +
+    const fit = '<div class="cols">' +
       '<div class="col for"><h5>Why you fit</h5>' + list(j.fit_reasons, "—") + "</div>" +
-      '<div class="col against"><h5>Where you might not</h5>' + list(j.gaps, "No notable gaps flagged") + "</div></div></div>";
+      '<div class="col against"><h5>Where you might not</h5>' + list(j.gaps, "No notable gaps flagged") + "</div></div>";
     const hasLegit = (j.legit_evidence || []).length || (j.legit_flags || []).length || j.legit_score != null;
-    const legit = hasLegit ? '<div class="module"><h4><span class="k" style="background:var(--applied)"></span>Legitimacy — ' + (j.legit_score == null ? "unverified" : j.legit_score + "/100 real") + "</h4><div class=\"cols\">" +
+    const legit = hasLegit ? '<div class="psub"><span class="k" style="background:var(--applied)"></span>Legitimacy — ' + (j.legit_score == null ? "unverified" : j.legit_score + "/100 real") + "</div><div class=\"cols\">" +
       '<div class="col for"><h5>Looks real because</h5>' + list(j.legit_evidence, "—") + "</div>" +
-      '<div class="col against"><h5>Ghost / fake risk</h5>' + list(j.legit_flags, "No red flags") + "</div></div></div>" : "";
+      '<div class="col against"><h5>Ghost / fake risk</h5>' + list(j.legit_flags, "No red flags") + "</div></div>" : "";
     return fit + legit;
   }
 
@@ -597,16 +654,20 @@
       (hostPath ? '<button type="button" class="copypath" data-copypath="' + esc(hostPath) + '">Copy path</button>' : "") +
       '</summary><pre>' + esc(previewText || "(no text extracted)") + "</pre></details>";
   }
-  function docsModule(j, st) {
-    if (!j.documents_path && !j.resume_preview && !j.cover_letter_preview) {
+  function docsContent(j, st) {
+    const hasPreview = j.resume_preview || j.cover_letter_preview;
+    if (!j.documents_path && !hasPreview) {
       if (!DOC_FIRST.has(st)) return "";
-      return '<div class="module"><h4><span class="k" style="background:var(--flight)"></span>Application documents</h4>' +
-        '<div class="docs-empty">Not drafted yet — marking a role interested auto-drafts a tailored resume + cover letter on the next Sync.' +
-        '<button type="button" class="btn sm" data-act="draftnow" data-id="' + esc(j.id) + '">Draft now</button></div></div>';
+      return '<div class="docs-empty">Not drafted yet — marking a role interested auto-drafts a tailored resume + cover letter on the next Sync.' +
+        '<button type="button" class="btn sm" data-act="draftnow" data-id="' + esc(j.id) + '">Draft now</button></div>';
     }
-    return '<div class="module"><h4><span class="k" style="background:var(--flight)"></span>Application documents</h4>' +
-      docBlock("Resume", j.resume_preview, j.resume_host_path) +
-      docBlock("Cover Letter", j.cover_letter_preview, j.cover_letter_host_path) + "</div>";
+    if (hasPreview) {
+      return docBlock("Resume", j.resume_preview, j.resume_host_path) +
+        docBlock("Cover Letter", j.cover_letter_preview, j.cover_letter_host_path);
+    }
+    // documents_path set but no extracted preview text (built without local PDFs)
+    return '<div class="notes-line">Resume &amp; cover letter drafted — open them from <span class="mono">' + esc(j.documents_path) + '</span> ' +
+      '<button type="button" class="copypath" data-copypath="' + esc(j.documents_path) + '">Copy path</button></div>';
   }
 
   /* ---------- interviews + mock drill ---------- */
@@ -693,17 +754,16 @@
         '<div class="notebox"><textarea placeholder="Notes from/about this round — Claude reads these too" data-ivnoteinput="' + esc(key) + '"></textarea><button class="btn sm" data-ivaddnote="' + esc(key) + '">Add note</button></div>' +
       "</div></div>";
   }
-  function interviewsModule(j) {
+  function interviewsContent(j) {
     const rounds = (j.interviews || []).map(iv => interviewHTML(j, iv)).join("");
-    return '<div class="module"><h4><span class="k" style="background:var(--interviewing)"></span>Interviews</h4>' +
-      (rounds || '<div class="notes-line">No rounds scheduled yet. Add one below once you hear back.</div>') +
+    return (rounds || '<div class="notes-line">No rounds scheduled yet. Add one below once you hear back.</div>') +
       '<div class="addround">' +
         '<input type="text" placeholder="round (e.g. Phone Screen)" data-round-round data-round-for="' + esc(j.id) + '">' +
         '<input type="text" placeholder="date (YYYY-MM-DD)" data-round-date data-round-for="' + esc(j.id) + '">' +
         '<select data-round-format data-round-for="' + esc(j.id) + '"><option value="phone">Phone</option><option value="video">Video</option><option value="onsite">Onsite</option><option value="technical">Technical</option><option value="take-home">Take-home</option><option value="other">Other</option></select>' +
         '<input type="text" placeholder="interviewer(s)" data-round-interviewers data-round-for="' + esc(j.id) + '">' +
         '<button class="btn sm" data-addround="' + esc(j.id) + '">Add round</button>' +
-      "</div></div>";
+      "</div>";
   }
 
   /* ---------- job card ---------- */
@@ -736,39 +796,92 @@
     const askBtn = '<button class="btn chat sm" data-act="ask" data-id="' + esc(j.id) + '">↗ Ask about this role</button>';
     const markApplied = (st !== "applied" && st !== "interviewing" && st !== "offer")
       ? '<button class="btn subtle sm" data-act="markapplied" data-id="' + esc(j.id) + '" title="I already applied to this myself">Mark applied</button>' : "";
+    const isArchived = st === "passed" || st === "skipped" || st === "expired" || st === "rejected";
+    const canArchive = st !== "new" && !isArchived;
+    const archiveBtn = canArchive
+      ? '<button class="btn subtle sm" data-act="rejectform" data-id="' + esc(j.id) + '" title="They told you they are moving on — archive it">They passed</button>' : "";
+    const restoreBtn = isArchived
+      ? '<button class="btn go" data-setstatus="' + esc(j.id) + '" data-status="new" title="Undo — put this back in Needs you to re-decide">↩ Restore to review</button>' : "";
+    const statusBtn = '<button class="btn subtle sm" data-act="statusform" data-id="' + esc(j.id) + '" title="Set the status by hand">Change status</button>';
 
     let acts;
     if (st === "new") {
       acts = '<button class="btn go" data-act="interested" data-id="' + esc(j.id) + '">Interested — draft it</button>' +
         '<button class="btn danger ghost" data-act="passform" data-id="' + esc(j.id) + '">Pass</button>' +
-        askBtn + '<span class="grow"></span>' + openBtn + talkBtn;
+        askBtn + '<span class="grow"></span>' + statusBtn + openBtn + talkBtn;
     } else if (st === "drafts_ready") {
       acts = '<button class="btn primary" data-act="talk" data-id="' + esc(j.id) + '">Review &amp; approve in chat</button>' +
-        askBtn + '<span class="grow"></span>' + openBtn + markApplied;
+        askBtn + archiveBtn + '<span class="grow"></span>' + statusBtn + openBtn + markApplied;
+    } else if (isArchived) {
+      acts = restoreBtn + askBtn + talkBtn + '<span class="grow"></span>' + statusBtn + openBtn;
     } else {
-      acts = askBtn + talkBtn + '<span class="grow"></span>' + openBtn + markApplied;
+      acts = askBtn + talkBtn + archiveBtn + '<span class="grow"></span>' + statusBtn + openBtn + markApplied;
     }
     const stateNote = st === "interested" ? '<div class="notes-line">Drafting your tailored resume &amp; cover letter — happens on the next Sync.</div>'
       : st === "approved_to_submit" ? '<div class="notes-line">Approved — submission happens in chat with your go-ahead.</div>' : "";
 
     const notes = (j.notes || []).map(n => esc(n.note)).join(" · ");
     const showIv = st !== "new" && st !== "passed" && st !== "skipped" && st !== "expired";
-    const ivMod = showIv ? interviewsModule(j) : "";
+    const rejectPanel = canArchive
+      ? '<div class="passform" data-rejectform="' + esc(j.id) + '">' +
+          ["Moving forward with other candidates", "Position filled", "Process paused/closed", "Feedback: skills gap"].map(r =>
+            '<button class="chipbtn" data-reject="' + esc(j.id) + '" data-reason="' + r + '">' + r + "</button>").join("") +
+          '<label class="chipbtn"><input type="checkbox" data-reapplycheck="' + esc(j.id) + '"> They invited me to apply to other roles</label>' +
+          '<input type="text" placeholder="paste their message or add detail (optional)" data-rejectinput="' + esc(j.id) + '">' +
+          '<button class="chipbtn" data-rejectcustom="' + esc(j.id) + '">Mark rejected</button>' +
+        "</div>"
+      : "";
+    const STATUS_SET = [
+      ["new", "Reopen — Decide"], ["interested", "Interested"], ["applied", "Applied"],
+      ["interviewing", "Interviewing"], ["offer", "Offer"],
+      ["passed", "Passed"], ["skipped", "Skipped"], ["expired", "Expired"], ["rejected", "Rejected"]
+    ];
+    const statusPanel = '<div class="statusform" data-statusform="' + esc(j.id) + '">' +
+      '<span class="lbl">Set status manually — reopens or moves this role on the next Sync</span>' +
+      STATUS_SET.map(s => '<button class="schip' + (s[0] === st ? " cur" : "") + '" data-setstatus="' + esc(j.id) +
+        '" data-status="' + s[0] + '" style="--schip-hue:' + (STATUS_HUE[s[0]] || "var(--muted)") + '"' +
+        (s[0] === st ? ' aria-disabled="true"' : "") + '><span class="d"></span>' + s[1] + "</button>").join("") +
+      '<input type="text" placeholder="why / context for this change (optional) — Claude logs it" data-statusreason="' + esc(j.id) + '">' +
+      "</div>";
+
+    // ---- in-card section tabs: Role / Fit / Comp / Documents / Interviews ----
+    const panels = [
+      { key: "role", label: "Role",       hue: "var(--new)",          ink: "var(--muted)",        html: roleContent(j) },
+      { key: "fit",  label: "Fit",        hue: "var(--go)",           ink: "var(--go-ink)",       html: fitContent(j) },
+      { key: "comp", label: "Comp",       hue: "var(--offer)",        ink: "var(--offer)",        html: compContent(j) }
+    ];
+    const docsHtml = docsContent(j, st);
+    if (docsHtml) panels.push({ key: "docs", label: "Documents", hue: "var(--flight)", ink: "var(--flight)",
+      ct: j.documents_path ? "✓" : "", html: docsHtml });
+    if (showIv) panels.push({ key: "iv", label: "Interviews", hue: "var(--interviewing)", ink: "var(--interviewing)",
+      ct: (j.interviews || []).length || "", html: interviewsContent(j) });
+
+    const availKeys = panels.map(p => p.key);
+    let active = cardTab[j.id];
+    if (!active || availKeys.indexOf(active) < 0) active = defaultCardTab(st, availKeys);
+
+    const tabbar = '<div class="cardtabs" role="tablist" aria-label="Role sections">' + panels.map(p =>
+      '<button class="cardtab" role="tab" data-cardtab="' + p.key + '" data-cardfor="' + esc(j.id) + '" aria-selected="' + (p.key === active) +
+        '" style="--tab-hue:' + p.hue + ';--tab-ink:' + p.ink + '"><span class="k"></span>' + p.label +
+        (p.ct ? '<span class="tct">' + esc(String(p.ct)) + "</span>" : "") + "</button>").join("") + "</div>";
+    const panelHTML = panels.map(p =>
+      '<div class="cardpanel' + (p.key === active ? " on" : "") + '" data-cardpanel="' + p.key + '" role="tabpanel">' + p.html + "</div>").join("");
+
     const detail =
       '<div class="detail">' +
-        (j.jd_summary ? '<p class="jd">' + esc(j.jd_summary) + "</p>" : "") +
-        compModule(j) +
-        (DOC_FIRST.has(st) ? docsModule(j, st) + ivMod : ivMod + docsModule(j, st)) +
-        reasoningModule(j) +
-        '<div class="acts">' + acts + "</div>" + stateNote +
-        '<div class="passform" data-passform="' + esc(j.id) + '">' +
-          ["Comp too low", "Role mismatch", "Company", "Location", "Timing"].map(r => '<button class="chipbtn" data-pass="' + esc(j.id) + '" data-reason="' + r + '">' + r + "</button>").join("") +
-          '<input type="text" placeholder="other reason (helps me learn)" data-passinput="' + esc(j.id) + '">' +
-          '<button class="chipbtn" data-passcustom="' + esc(j.id) + '">Pass with note</button>' +
+        tabbar + panelHTML +
+        '<div class="detail-actions">' +
+          '<div class="acts">' + acts + "</div>" + stateNote +
+          '<div class="passform" data-passform="' + esc(j.id) + '">' +
+            ["Comp too low", "Role mismatch", "Company", "Location", "Timing"].map(r => '<button class="chipbtn" data-pass="' + esc(j.id) + '" data-reason="' + r + '">' + r + "</button>").join("") +
+            '<input type="text" placeholder="other reason (helps me learn)" data-passinput="' + esc(j.id) + '">' +
+            '<button class="chipbtn" data-passcustom="' + esc(j.id) + '">Pass with note</button>' +
+          "</div>" +
+          rejectPanel + statusPanel +
+          '<div class="notebox"><textarea placeholder="Add a note, paste a recruiter email or transcript — Claude reads these at check-in" data-noteinput="' + esc(j.id) + '"></textarea><button class="btn sm" data-addnote="' + esc(j.id) + '">Add note</button></div>' +
+          (notes ? '<div class="notes-line">Notes: ' + notes + "</div>" : "") +
+          '<div class="notes-line faded">Context files → JobSearch/context/' + esc(j.id) + "/ · Found " + esc((j.date_found || "").slice(0, 10)) + (j.source ? " · " + esc(j.source) : "") + "</div>" +
         "</div>" +
-        '<div class="notebox"><textarea placeholder="Add a note, paste a recruiter email or transcript — Claude reads these at check-in" data-noteinput="' + esc(j.id) + '"></textarea><button class="btn sm" data-addnote="' + esc(j.id) + '">Add note</button></div>' +
-        (notes ? '<div class="notes-line">Notes: ' + notes + "</div>" : "") +
-        '<div class="notes-line faded">Context files → JobSearch/context/' + esc(j.id) + "/ · Found " + esc((j.date_found || "").slice(0, 10)) + (j.source ? " · " + esc(j.source) : "") + "</div>" +
       "</div>";
 
     return '<article class="card ' + (needs ? "needs" : "") + (openRows.has(j.id) ? " open" : "") + '" style="--stage-hue:' + hue + '" data-row="' + esc(j.id) + '">' +
@@ -992,7 +1105,7 @@
 
   /* ---------- events ---------- */
   document.addEventListener("click", function (e) {
-    const t = e.target.closest("[data-tab],[data-toggle],[data-act],[data-pass],[data-passcustom],[data-qsave],[data-addnote],[data-copypath],[data-addround],[data-ivaddnote],[data-nudge],[data-drill-open],[data-drill-close],[data-drill-reveal],[data-drill-next],[data-drill-save],#runNow,#refreshBoard,#copySync,#clearSync,#syncNow,#themeBtn,#sheetClose,#sheetCopy,#scrim");
+    const t = e.target.closest("[data-tab],[data-cardtab],[data-toggle],[data-act],[data-pass],[data-passcustom],[data-reject],[data-rejectcustom],[data-setstatus],[data-qsave],[data-addnote],[data-copypath],[data-addround],[data-ivaddnote],[data-nudge],[data-drill-open],[data-drill-close],[data-drill-reveal],[data-drill-next],[data-drill-save],#runNow,#refreshBoard,#copySync,#clearSync,#syncNow,#themeBtn,#sheetClose,#sheetCopy,#scrim");
     if (!t) return;
 
     if (t.id === "themeBtn") { toggleTheme(); return; }
@@ -1000,12 +1113,22 @@
     if (t.id === "sheetCopy") { doCopy($("#sheetText").value); return; }
 
     if (t.dataset.tab) { activeTab = t.dataset.tab; localStorage.setItem("jd-tab", activeTab); render(); return; }
+    if (t.dataset.cardtab) {
+      const key = t.dataset.cardtab, id = t.dataset.cardfor;
+      cardTab[id] = key;
+      const card = t.closest(".card");
+      if (card) {
+        card.querySelectorAll(".cardtab").forEach(b => b.setAttribute("aria-selected", String(b.dataset.cardtab === key)));
+        card.querySelectorAll(".cardpanel").forEach(p => p.classList.toggle("on", p.dataset.cardpanel === key));
+      }
+      return;
+    }
     if (t.dataset.nudge) { activeTab = t.dataset.nudgeTab; localStorage.setItem("jd-tab", activeTab); openRows.add(t.dataset.nudge); render();
       const el = $('[data-row="' + CSS.escape(t.dataset.nudge) + '"]'); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
     if (t.dataset.toggle) { const id = t.dataset.toggle; openRows.has(id) ? openRows.delete(id) : openRows.add(id); render(); return; }
 
     // drill (mock practice)
-    if (t.dataset.drillOpen) { mockState[t.dataset.drillOpen] = Object.assign({ i: 0, revealed: false }, mockState[t.dataset.drillOpen], { open: true }); render(); return; }
+    if (t.dataset.drillOpen) { mockState[t.dataset.drillOpen] = Object.assign({ i: 0, revealed: false }, mockState[t.dataset.drillOpen], { open: true }); cardTab[t.dataset.drillOpen.split("::")[0]] = "iv"; render(); return; }
     if (t.dataset.drillClose) { saveDrillAnswer(t.dataset.drillClose); if (mockState[t.dataset.drillClose]) mockState[t.dataset.drillClose].open = false; render(); return; }
     if (t.dataset.drillReveal) { saveDrillAnswer(t.dataset.drillReveal); mockState[t.dataset.drillReveal].revealed = true; render(); return; }
     if (t.dataset.drillNext) { const k = t.dataset.drillNext; saveDrillAnswer(k); mockState[k].i = (mockState[k].i || 0) + 1; mockState[k].revealed = false; mockState[k].answer = ""; render(); return; }
@@ -1056,6 +1179,32 @@
     if (t.dataset.passcustom) {
       const inp = $('[data-passinput="' + CSS.escape(t.dataset.passcustom) + '"]');
       pushQ({ kind: "job", id: t.dataset.passcustom, status: "passed", reason: (inp && inp.value.trim()) || "no reason given", at: Date.now() }); return;
+    }
+    if (t.dataset.act === "statusform") { const f = $('[data-statusform="' + CSS.escape(t.dataset.id) + '"]'); if (f) f.classList.toggle("show"); return; }
+    if (t.dataset.setstatus) {
+      const id = t.dataset.setstatus, status = t.dataset.status;
+      const cur = effStatus(jobById(id) || {});
+      if (status === cur) return; // no-op: already this status
+      const inp = $('[data-statusreason="' + CSS.escape(id) + '"]');
+      const typed = inp && inp.value.trim();
+      const reason = typed || (status === "new" ? "Restored from archive by hand (accidental/overturned pass)" : "Manual status change from board");
+      pushQ({ kind: "job", id: id, status: status, reason: reason, at: Date.now() });
+      if (inp) inp.value = "";
+      return;
+    }
+    if (t.dataset.act === "rejectform") { const f = $('[data-rejectform="' + CSS.escape(t.dataset.id) + '"]'); if (f) f.classList.toggle("show"); return; }
+    if (t.dataset.reject) {
+      const id = t.dataset.reject;
+      const cb = $('[data-reapplycheck="' + CSS.escape(id) + '"]');
+      const reapply = !!(cb && cb.checked);
+      pushQ({ kind: "job", id: id, status: "rejected", reason: t.dataset.reason, reapply_invited: reapply, at: Date.now() }); return;
+    }
+    if (t.dataset.rejectcustom) {
+      const id = t.dataset.rejectcustom;
+      const inp = $('[data-rejectinput="' + CSS.escape(id) + '"]');
+      const cb = $('[data-reapplycheck="' + CSS.escape(id) + '"]');
+      const reapply = !!(cb && cb.checked);
+      pushQ({ kind: "job", id: id, status: "rejected", reason: (inp && inp.value.trim()) || "no detail given", reapply_invited: reapply, at: Date.now() }); return;
     }
     if (t.dataset.qsave) {
       const inp = $('[data-qinput="' + CSS.escape(t.dataset.qsave) + '"]');

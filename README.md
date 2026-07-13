@@ -96,6 +96,70 @@ live dashboard plus two scheduled research runs. Answer its questions as they co
 
 ---
 
+## Update an existing install
+
+Already running the board and want the latest features (new dashboard tabs, script fixes,
+etc.)? **Your personal data is safe:** `JobSearch/data/jobs.json`, your `Profile/*.md`, your
+`Applications/`, and the built `board.html` are all git-ignored, so pulling updates never
+touches them — only the shared system files (dashboard template, scripts, skill, task prompts)
+move forward.
+
+Open a Cowork session on the **same project folder** you installed into, then copy this block
+**verbatim** into the message box and send. Claude does the diff, merge, rebuild, and re-publish
+for you, preserving both your data and your local config.
+
+```text
+Update my installed Job Search Board to the latest version from the upstream repo, without touching any of my personal data.
+
+Work carefully, from the project root:
+
+1. Protect my work first. Commit my current local state so nothing can be lost:
+   `git add -A && git commit -m "local config before update"`.
+   (My real data — jobs.json, Profile/*.md, Applications/ — is git-ignored, so this only
+   snapshots the config edits I made at install.) If this folder is NOT a git clone (I
+   downloaded a ZIP), stop and tell me — then instead fetch the latest tracked files from
+   https://github.com/jyelle111/Job-Search-Board and copy them in OVER the old ones, but never
+   over jobs.json, Profile/*.md, feedback-log.md, or anything under Applications/.
+
+2. Show me what's changing before applying it:
+   `git fetch origin`, then `git log --oneline HEAD..origin/main` and
+   `git diff --stat HEAD origin/main`. Summarize the notable changes for me.
+
+3. Merge the update: `git pull --no-edit origin main`. Any merge conflicts will be in the files
+   I customized during install — resolve them by KEEPING MY local values and TAKING the upstream
+   feature code. After merging, re-check and re-apply if any got reverted:
+   - the Google Drive tool name where `DRIVE_CREATE` is set near the top of the <script> block
+     in JobSearch/artifact/template.html (must not fall back to the REPLACE_WITH… placeholder),
+   - my scheduled-task ids in the artifact's action calls in that same template — the three
+     `trigger(...)` calls near the bottom (Find new roles → `job-search-morning`, Refresh →
+     `job-board-refresh`, Draft now → `job-board-sync`) AND the `runScheduledTask("job-board-sync")`
+     call inside `syncNow()` (the Sync now button, which applies every queued decision). If I used
+     the default ids these need no change; if I renamed a task, keep my id.
+   - `RESUME_ROOT_HOST` at the top of JobSearch/scripts/build_board.py.
+
+4. If any files under scheduled-tasks/ or skills/ changed in this update, update the matching
+   scheduled tasks / skill to match (re-resolving the {{PROJECT_ROOT}}, {{SANDBOX_MOUNT}}, and
+   {{SANDBOX_MOUNT_OUTPUTS}} placeholders) so the automation matches the new prompts.
+
+5. Rebuild the dashboard from MY data (not the sample):
+   `python3 JobSearch/scripts/build_board.py` — this reads my real jobs.json and writes
+   JobSearch/artifact/board.html.
+
+6. Re-publish to the SAME artifact I already have (keep my existing link): call
+   mcp__cowork__update_artifact with that rebuilt board.html and my current board artifact id.
+   Do NOT create a new artifact.
+
+7. Reload the dashboard, confirm the new features are live, and tell me exactly what changed,
+   what config you preserved, and anything I still need to do myself.
+
+Never modify or delete my jobs.json, jobs.backup.json, Profile/*.md, feedback-log.md, or
+anything under Applications/. If anything is ambiguous, ask me before proceeding.
+```
+
+Your data stays put; only the board UI and system scripts advance to the latest version.
+
+---
+
 ## What's in this repo
 
 ```
@@ -132,8 +196,10 @@ Job Search Board/
 **Q: Can I see what the dashboard looks like before installing anything?**
 A: Yes — `JobSearch/artifact/board.sample.html` is a fully pre-built version of the
 dashboard with two fictional jobs already in it (same data as `jobs.example.json`). Open it
-directly in a browser to see the UI (tabs, fit meter, fit/gap/legitimacy panels, document
-previews, interview tracking). Note it's a static file at that point — the "Sync now,"
+directly in a browser to see the UI: pipeline stage chips up top, and each expanded job card
+splits into section tabs — **Role** (description + keywords), **Fit** (fit/gap + legitimacy),
+**Comp**, **Documents**, and **Interviews** — plus the fit meter, document previews, and
+interview tracking. Note it's a static file at that point — the "Sync now,"
 "Refresh board data," and "Run research now" buttons need `window.cowork` (only present
 inside an actual Cowork artifact) and the scheduled tasks to exist, so those won't do
 anything when opened as a plain file. `template.html` (the unbuilt version with the
@@ -208,8 +274,9 @@ placeholders. Suggested schedule (adjust to the user's timezone/preference):
 |---|---|---|
 | Morning research run | `job-search-morning.md` | daily, e.g. `0 5 * * *` (5:00 AM) |
 | Afternoon research run | `job-search-afternoon.md` | daily, e.g. `0 14 * * *` (2:00 PM) |
-| Board refresh | `job-board-refresh.md` | manual only (triggered from the dashboard's "Refresh board data" button) |
-| Board sync | `job-board-sync.md` | manual only (triggered from the dashboard's "Sync now" button) |
+| Board refresh | `job-board-refresh.md` | manual only (triggered from the dashboard's "Refresh" button) |
+| Board sync | `job-board-sync.md` | manual only (triggered from the dashboard's "Sync now" and "Draft now" buttons) |
+| Morning run (also on-demand) | — | the dashboard's "Find new roles" button also triggers `job-search-morning` |
 Ask the user if they'd rather start with the daily research runs **disabled** until they've
 reviewed a manual test run — enabling twice-daily automated research immediately is a
 reasonable default, but let them decide.
@@ -224,10 +291,24 @@ A:
    (the scheduled-task files use "the board artifact's id" generically — pick one, e.g.
    `job-search-board`, and use that same id consistently everywhere `update_artifact` is
    called in the scheduled-task prompts you just created).
-4. Note the artifact expects two scheduled task ids to exist for its buttons to work:
-   whatever you named the research-run task (for "Run research now") and
-   `job-board-refresh`'s id (for "Refresh board data"). If you used different ids than the
-   defaults, update the two `trigger(...)` calls near the bottom of `template.html`.
+4. Wire the artifact's action buttons. Each one calls a scheduled task **by its exact id**, so
+   those ids must match the tasks you created in the previous Q&A. With the default ids (which
+   match the `scheduled-tasks/` filenames) it all works with no edit; if you named any task
+   differently, update the matching call in `template.html` — there are **four** call sites
+   across **three** task ids:
+   - **Find new roles** (top bar) → `trigger("job-search-morning", …)`
+   - **Refresh** (top bar) → `trigger("job-board-refresh", …)`
+   - **Draft now** (shown on an undrafted role's Documents tab) → `trigger("job-board-sync", …)`
+   - **Sync now** (the queued-decisions bar) → `runScheduledTask("job-board-sync", …)`, inside
+     the `syncNow()` function. This is the important one: it applies **every** queued board
+     decision — interested/pass/"they passed", **manual status changes and "Restore to review"
+     from the archive**, notes, and interview rounds. The three `trigger(...)` calls sit near
+     the bottom of the `<script>`; the Sync now call is in `syncNow()` just above them.
+
+   The in-card decision buttons themselves (Interested, Pass, They passed, Change status,
+   Restore, Add note, Add round…) need no per-button wiring — they queue to the browser and are
+   all applied by that one Sync now → `job-board-sync` path (or the "Copy for chat" fallback).
+   Also set `DRIVE_CREATE` (see the Drive Q&A) if you want one-click Sync now.
 
 **Q: Do I need Google Drive for this to work?**
 A: No — it's optional. The dashboard's "Sync now" button uploads queued decisions to Google

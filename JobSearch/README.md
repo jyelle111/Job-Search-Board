@@ -26,9 +26,13 @@
   (the real files — the board only shows a preview + the path).
 - **Job Board artifact** — the UI, created via `mcp__cowork__create_artifact`. It's a
   SNAPSHOT: data is embedded at build time by `scripts/build_board.py` merging
-  `data/jobs.json` into `artifact/template.html`. Interested/Pass clicks, question answers,
-  interview rounds, and interview notes all queue in the board (browser localStorage) and
-  sync via the "Sync now"/"Copy for chat" bar.
+  `data/jobs.json` into `artifact/template.html`. Pipeline stages are chips across the top;
+  expanding a job card splits its detail into section tabs — **Role** (JD description +
+  keywords), **Fit** (fit/gaps + legitimacy), **Comp**, **Documents**, and **Interviews** —
+  with the tab it opens on chosen by status (deciding → Role, in-flight/applied → Documents,
+  interviewing → Interviews). Interested/Pass clicks, question answers, interview rounds, and
+  interview notes all queue in the board (browser localStorage) and sync via the "Sync
+  now"/"Copy for chat" bar.
 - **Scheduled tasks** (see `../scheduled-tasks/`) — two research runs per day (research new
   jobs, add matches, rebuild the board), plus two on-demand tasks wired to the board's
   buttons: `job-board-refresh` (rebuild only) and `job-board-sync` (apply queued decisions,
@@ -40,6 +44,14 @@
 Any point: `passed` (not interested), `skipped` (not now), `expired` (posting gone),
 `rejected` (interview process ended without an offer).
 
+Any card's status can also be set by hand from the board: the action row has a **Change
+status** control (status chips with an optional context note), and archived roles
+(passed/skipped/expired/rejected) get a one-click **↩ Restore to review** that undoes an
+accidental pass and drops the role back into *Needs you* as `new`. Both queue like any other
+decision (`mark <id> as <status>`) and apply on the next Sync — a user-initiated restore is
+the one legitimate way an archived role re-enters the pipeline (the "never resurface passed
+jobs" rule still blocks the *automated* research runs from doing it).
+
 ## Auto-draft on "interested"
 Marking a job "I'm interested" on the board and hitting Sync now does more than change its
 status: `job-board-sync` checks whether the job already has `documents_path` set, and if
@@ -50,7 +62,7 @@ self-audit, filing under `Applications/<Company> - <Role>/`), and marks the job
 submitted without your explicit go-ahead.
 
 ## Interview tracking
-Once a job is `applied`, add interview rounds from the board's "Interviews" section (round
+Once a job is `applied`, add interview rounds from the board's "Interviews" tab (round
 name, date, format, interviewer). Adding a round:
 - Moves the job to `interviewing` (never downgrades a job already at `offer`/`rejected`).
 - Queues an `interview_add` decision; on the next Sync, `job-board-sync` creates the round
